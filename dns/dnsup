@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Disable glob to avoid wildcard expantion
+set -f
+
+source $1
+for HOST in $HOSTS; do
+for DOMAIN in $DOMAINS; do
+	curl "$BASE_LINK/update?host=$HOST&domain=$DOMAIN&password=$PASSWORD"
+done; done

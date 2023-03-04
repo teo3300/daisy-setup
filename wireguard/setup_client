@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Stops at any error
+set -e
+
+source "$(dirname $0)/config"
+
+touch /etc/wireguard/wg0.conf || (echo Please, run this script as sudo && false)
+
+if [[ "$#" -ne 2  ]]; then
+	echo Provide an hostname and an host number
+	exit 1
+fi
+
+echo Moving to wireguard folder
+cd /etc/wireguard
+umask 077
+
+echo Adding client \"$name\":
+name=$1
+number=$2
+echo "Generating key pair"
+wg genkey | tee "/etc/wireguard/${name}.key" | wg pubkey > "/etc/wireguard/${name}.pub"
+
+echo Generating pre-shared key
+wg genpsk > "/etc/wireguard/${name}.psk"
+
+echo Adding host to config
+echo "" >> /etc/wireguard/wg0.conf
+echo "# $name" >> /etc/wireguard/wg0.conf
+echo "[Peer]" >> /etc/wireguard/wg0.conf
+echo "PublicKey = $(cat "/etc/wireguard/${name}.pub")" >> /etc/wireguard/wg0.conf
+echo "PresharedKey = $(cat "/etc/wireguard/${name}.psk")" >> /etc/wireguard/wg0.conf
+echo "AllowedIPs = 10.100.0.$number/32, fd08:4711::$number/128" >> /etc/wireguard/wg0.conf
+
+echo
+
+echo Creating client configuration at /etc/wireguard/$name.conf
+echo "[Interface]" > /etc/wireguard/$name.conf
+echo "Address = 10.100.0.$number/32, fd08:4711::$number/128" >> /etc/wireguard/$name.conf
+echo "DNS = 10.100.0.1" >> /etc/wireguard/$name.conf
+echo "PrivateKey = $(cat "/etc/wireguard/$name.key")" >> /etc/wireguard/$name.conf
+
+echo "[Peer]" >> /etc/wireguard/$name.conf
+echo "AllowedIPs = 10.100.0.1/32, fd08:4711::1/128, 192.168.1.0/24" >> /etc/wireguard/$name.conf
+echo "Endpoint = $SERVER_DOMAIN:$SERVER_PORT" >> /etc/wireguard/$name.conf
+echo "PersistentKeepalive = 25" >> /etc/wireguard/$name.conf
+
+echo "PublicKey = $(cat wg0.pub)" >> /etc/wireguard/$name.conf
+echo "PresharedKey = $(cat "/etc/wireguard/$name.psk")" >> /etc/wireguard/$name.conf
+
+echo Reloading wireguard config
+wg syncconf wg0 <(wg-quick strip wg0)
+
+cd -

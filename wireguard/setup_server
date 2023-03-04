@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Exit at eny error
+set -e
+
+source "$(dirname $0)/config"
+
+echo Creating config directory
+mkdir -p /etc/wireguard || (echo Please, run this script as root && false)
+cd /etc/wireguard
+umask 077
+
+echo Generating wg0 key pair
+wg genkey | tee wg0.key | wg pubkey > wg0.pub
+
+SERVER_HEADER="
+[Interface]
+Address = 10.100.0.1/24, fd08:4711::1/64
+ListenPort = $SERVER_PORT"
+
+echo Writing configuration file
+echo "$SERVER_HEADER" > /etc/wireguard/wg0.conf
+echo "PrivateKey = $(cat wg0.key)" >> /etc/wireguard/wg0.conf
+
+echo Enabling service
+sudo systemctl daemon-reload
+sudo systemctl enable --now wg-quick@wg0.service

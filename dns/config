@@ -1,0 +1,6 @@
+#!/bin/bash
+
+BASE_LINK='https://dynamicdns.park-your-domain.com'
+HOSTS='@ *'
+DOMAINS="$(cat secrets_domain)"
+PASSWORD="$(cat secrets_password)"

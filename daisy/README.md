@@ -1,6 +1,6 @@
-# daisy-setup
+# Daisy
 
-Simple repository to keep all my server config and mini scripts, because I know myself and am sure I'll break everything someday
+I know myself and am sure I'll break everything someday
 
 # What this provides
 

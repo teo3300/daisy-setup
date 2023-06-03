@@ -1,0 +1,4 @@
+#!/bin/bash
+
+export MYSQL_ROOT_PASSWORD="$(cat /root/nextcloud/keys/MYSQL_ROOT_KEY)"
+export MYSQL_PASSWORD="$(cat /root/nextcloud/keys/MYSQL_KEY)"

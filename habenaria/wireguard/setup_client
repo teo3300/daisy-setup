@@ -4,21 +4,29 @@
 set -e
 
 source "$(dirname $0)/config"
+if [[ -z "$SERVER_DOMAIN" ]]; then
+	echo specify a '$SERVER_DOMAIN'
+	false
+fi
+if [[ -z "$SERVER_PORT" ]]; then
+	echo specify a '$SERVER_PORT'
+	false
+fi
 
 touch /etc/wireguard/wg0.conf || (echo Please, run this script as sudo && false)
 
 if [[ "$#" -ne 2  ]]; then
 	echo Provide an hostname and an host number
-	exit 1
+	false
 fi
 
 echo Moving to wireguard folder
 cd /etc/wireguard
 umask 077
 
-echo Adding client \"$name\":
 name=$1
 number=$2
+echo Adding client \"$name\":
 echo "Generating key pair"
 wg genkey | tee "/etc/wireguard/${name}.key" | wg pubkey > "/etc/wireguard/${name}.pub"
 
@@ -42,7 +50,7 @@ echo "DNS = 10.100.0.1" >> /etc/wireguard/$name.conf
 echo "PrivateKey = $(cat "/etc/wireguard/$name.key")" >> /etc/wireguard/$name.conf
 
 echo "[Peer]" >> /etc/wireguard/$name.conf
-echo "AllowedIPs = 10.100.0.1/32, fd08:4711::1/128, 192.168.1.0/24" >> /etc/wireguard/$name.conf
+echo "AllowedIPs = 0.0.0.0/0, ::/0" >> /etc/wireguard/$name.conf
 echo "Endpoint = $SERVER_DOMAIN:$SERVER_PORT" >> /etc/wireguard/$name.conf
 echo "PersistentKeepalive = 25" >> /etc/wireguard/$name.conf
 

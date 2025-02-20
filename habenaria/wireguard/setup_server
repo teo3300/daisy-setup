@@ -2,8 +2,16 @@
 
 # Exit at eny error
 set -e
+if [[ -z "$ETH_PORT" ]]; then
+  echo specify '$ETH_PORT': name of the port usedby the server
+  false
+fi
 
 source "$(dirname $0)/config"
+if [[ -z "$SERVER_PORT" ]]; then
+  echo specify a '$SERVER_PORT' to use
+  false
+fi
 
 echo Creating config directory
 mkdir -p /etc/wireguard || (echo Please, run this script as root && false)
@@ -21,6 +29,9 @@ ListenPort = $SERVER_PORT"
 echo Writing configuration file
 echo "$SERVER_HEADER" > /etc/wireguard/wg0.conf
 echo "PrivateKey = $(cat wg0.key)" >> /etc/wireguard/wg0.conf
+
+echo "PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o $ETH_PORT -j MASQUERADE" >> /etc/wireguard/wg0.conf
+echo "PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o $ETH_PORT -j MASQUERADE" >> /etc/wireguard/wg0.conf
 
 echo Enabling service
 sudo systemctl daemon-reload

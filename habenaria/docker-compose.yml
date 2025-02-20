@@ -1,12 +1,8 @@
-version: '2'
-
-volumes:
-  nextcloud:
-  db:
+version: '3'
 
 services:
 
-  # Reverse proxy
+# Reverse proxy
   nginx-proxy:
     image: 'jc21/nginx-proxy-manager:latest'
     restart: unless-stopped
@@ -15,37 +11,41 @@ services:
       - '81:81'
       - '443:443'
     volumes:
-      - ${HOME}/nextcloud/nginx/data:/data
-      - ${HOME}/nextcloud/nginx/letsencrypt:/etc/letsencrypt
+      - ./docker/ngingx-proxy/data:/data
+      - ./docker/letsencrypt:/etc/letsencrypt
 
-  # MariaDB
-  db:
-    image: mariadb:10.6
-    restart: always
-    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
-    volumes:
-      - ${HOME}/nextcloud/db:/var/lib/mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-
-  # Nextcloud
-  nextcloud:
-    image: nextcloud
-    container_name: nextcloud
-    restart: always
-    links:
-      - db
-    volumes:
-      - ${HOME}/nextcloud/nextcloud:/var/www/html
-    environment:
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-      - MYSQL_HOST=db
-    depends_on:
-      - nginx-proxy
+# Password manager
+  bitwarden:
+    image: 'vaultwarden/server:latest'
+    restart: unless-stopped
     networks:
       - default
+    container_name: 'bitwarden'
+    volumes:
+      - ./docker/vw-data:/data
+    depends_on:
+      - nginx-proxy
+
+# Local DNS
+  pihole:
+    image: 'pihole/pihole:latest'
+    restart: unless-stopped
+    networks:
+      - default
+    container_name: 'pihole'
+    ports:
+      - '53:53/tcp'
+      - '53:53/udp'
+      - '67:67/udp'
+      # Used during setup since the raspberry cannot yet point to itself
+      - '8080:80/tcp'
+    volumes:
+      - ./docker/pihole/etc/pihole:/etc/pihole
+      - ./docker/pihole/etc/dnsmasq.d:/etc/dnsmasq.d
+    cap_add:
+      - NET_ADMIN
+    environment:
+      TZ: 'Europe/Rome'
+      WEBPASSWORD: "${PIHOLE_WEBPASSWORD}" 
+    depends_on:
+      - nginx-proxy

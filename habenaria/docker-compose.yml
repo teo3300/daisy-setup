@@ -1,51 +1,102 @@
-version: '3'
+# Remember that volumes are mounted as:
+# - host/path:container/path
+
+# to connect to traefik, on a service:
+# labels:
+#   - traefik.enable=true # if not already "expose by default"
+# # note that "router-name" is user-specified
+#   - traefik.http.routers.<router-name>.rule=<rule to match> # https://doc.traefik.io/traefik/routing/routers/#rule for more info
+#   - traefik.http.routers.<router-name>.entrypoints=<entrypoint to use> (web, websecure, etc)
+## Ideally traefik should be on a different file so it can update config without restarting
+
+# Define network for exposing services
+
+networks:
+  frontend:
+    driver: bridge
 
 services:
-
 # Reverse proxy
-  nginx-proxy:
-    image: 'jc21/nginx-proxy-manager:latest'
+  traefik:
+    image: 'traefik:latest'
     restart: unless-stopped
+    container_name: 'traefik'
     ports:
       - '80:80'
-      - '81:81'
       - '443:443'
+      # Web-UI
+      - '8080:8080'
+    networks:
+      - frontend
     volumes:
-      - ./docker/ngingx-proxy/data:/data
-      - ./docker/letsencrypt:/etc/letsencrypt
+      # to listen to docker events
+      - ./docker/traefik:/etc/traefik
+      - ./docker/ssl-certs:/ssl-certs
+      - /var/run/docker.sock:/var/run/docker.sock
 
 # Password manager
   bitwarden:
     image: 'vaultwarden/server:latest'
     restart: unless-stopped
-    networks:
-      - default
     container_name: 'bitwarden'
     volumes:
       - ./docker/vw-data:/data
-    depends_on:
-      - nginx-proxy
+    networks:
+      - frontend
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.bitwarden.rule=Host(`bitwarden.kantai.online`) && ClientIP(`10.100.0.0/24`)'
+      - 'traefik.http.routers.bitwarden.entrypoints=websecure'
+      - 'traefik.http.routers.bitwarden.tls.certresolver=letsencrypt'
 
 # Local DNS
   pihole:
     image: 'pihole/pihole:latest'
     restart: unless-stopped
-    networks:
-      - default
     container_name: 'pihole'
     ports:
       - '53:53/tcp'
       - '53:53/udp'
       - '67:67/udp'
+      - '81:80'
       # Used during setup since the raspberry cannot yet point to itself
-      - '8080:80/tcp'
     volumes:
       - ./docker/pihole/etc/pihole:/etc/pihole
       - ./docker/pihole/etc/dnsmasq.d:/etc/dnsmasq.d
-    cap_add:
-      - NET_ADMIN
     environment:
       TZ: 'Europe/Rome'
       WEBPASSWORD: "${PIHOLE_WEBPASSWORD}" 
-    depends_on:
-      - nginx-proxy
+    networks:
+      - frontend
+
+# Media streaming
+  jellyfin:
+    image: 'jellyfin/jellyfin'
+    restart: unless-stopped
+    container_name: 'jellyfin'
+    volumes:
+      - ./docker/jellyfin/config:/config
+      - ./docker/jellyfin/cache:/cache
+      - type: bind
+        source: ./docker/jellyfin/media
+        target: /media
+      - type: bind
+        source: ./docker/jellyfin/media2
+        target: /media2
+        read_only: true
+      - type: bind
+        source: ./docker/jellyfin/fonts
+        target: /usr/local/share/fonts/custom
+        read_only: true
+    environment:
+      - JELLYFIN_PublishedServerUrl=movie.kantai.online
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    networks:
+      - frontend
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.jellyfin.rule=Host(`movie.kantai.online`)'
+      - 'traefik.http.routers.jellyfin.entrypoints=websecure'
+      - 'traefik.http.routers.jellyfin.tls.certresolver=letsencrypt'
+      - 'traefik.http.services.jellyfin.loadbalancer.server.port=8096'

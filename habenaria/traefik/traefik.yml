@@ -1,0 +1,37 @@
+# Update and report stuff
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# Will probably disable this later, firewalled
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: :80
+    # To force HTTPS: enable this later
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: :443
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: matteo.rogora@live.it
+      storage: /ssl-certs/acme.json
+      caServer: 'https://acme-v02.api.letsencrypt.org/directory'
+      httpChallenge:
+        entryPoint: web
+
+providers:
+  docker:
+    # Use docker's socket as provider for connection
+    # endpoint: "unix:///var/run/docker.sock"
+    # Select if you want to expose container by default
+    exposedByDefault: false

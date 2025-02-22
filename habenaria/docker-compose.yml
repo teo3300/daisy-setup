@@ -43,11 +43,6 @@ services:
       - ./docker/vw-data:/data
     networks:
       - frontend
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.bitwarden.rule=Host(`bitwarden.kantai.online`) && ClientIP(`10.100.0.0/24`)'
-      - 'traefik.http.routers.bitwarden.entrypoints=websecure'
-      - 'traefik.http.routers.bitwarden.tls.certresolver=letsencrypt'
 
 # Local DNS
   pihole:
@@ -94,9 +89,3 @@ services:
       - 'host.docker.internal:host-gateway'
     networks:
       - frontend
-    labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.jellyfin.rule=Host(`movie.kantai.online`)'
-      - 'traefik.http.routers.jellyfin.entrypoints=websecure'
-      - 'traefik.http.routers.jellyfin.tls.certresolver=letsencrypt'
-      - 'traefik.http.services.jellyfin.loadbalancer.server.port=8096'

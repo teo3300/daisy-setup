@@ -35,3 +35,7 @@ providers:
     # endpoint: "unix:///var/run/docker.sock"
     # Select if you want to expose container by default
     exposedByDefault: false
+  file:
+    # Use dynamic configuration for routing
+    filename: '/etc/traefik/dynamic.yml'
+    watch: true

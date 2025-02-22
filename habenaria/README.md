@@ -1,112 +1,168 @@
-# === FROM OLD DAISY ===
+# Instructions for server setup: `habenaria`
 
-# Daisy
+## Initial setup
 
-I know myself and am sure I'll break everything someday
+No specific procedure on the initial setup, just remember to install some packages douring setup as it becomes harder to install them later: e.g: `networkmanager`
 
-# What this provides
+## Networking
 
-# Static IP
-I'm using networkmanager because I am lazy.
-According to [this blog](https://michlstechblog.info/blog/linux-set-a-static-fixed-ip-with-network-manager-cli/) static IP address can be requested via NetworkManager via
+### Static IP
 
-```sh
-nmcli con mod "Wired connection 1"        \
-  ipv4.addresses  "10.200.2.200/24"       \
-  ipv4.gateway    "10.200.2.1"            \
-  ipv4.dns        "10.200.2.2,10.200.2.3" \
-  ipv4.dns-search "myDomain.org"          \
-  ipv4.method     "manual"
-```
+I'm using networkmanager because I am lazy. According to [this blog](https://michlstechblog.info/blog/linux-set-a-static-fixed-ip-with-network-manager-cli/) static IP address can be requested via NetworkManager via
 
-## DNS records update
-`dnsupdate.service` and `dnupdate.timer` provide a timer to update dns records according to the script inside the `dns` folder using [dynamicdns.park-your-domain.com](https://dynamicdns.park-your-domain.com)
-- copy both the `.service` and `.timer` file in `/et/systemd/system`
-- create a file ```"~/dns/secrets_domain"``` containing the domais to update
-- create a file ```"~/dns/secrets_password"```containing your dns pasword for authentication
-- *Remember to make these file not readable from other users* (`600` permissions)
+> Seutp static ip address for a specific connection using NetworkManager
 
-## Wireguard interface creation
+> ```sh
+> nmcli con mod "Wired connection 1"        \
+>   ipv4.addresses  "<host_addr>/<mask>"    \
+>   ipv4.gateway    "<gateway_addr>"        \
+>   ipv4.dns        "<dns_addre>"           \
+>   ipv4.dns-search "myDomain.org"          \
+>   ipv4.method     "manual"
+> ```
 
-Create a file in the local wireguard directory, setting the variables
-- `$SERVER_DOMAIN`
-- `$SERVER_PORT`
-And add executable privileges to the owner (better if setting `700` permissions)
+### DNS records update
+
+`dnsupdate.service` and `dnupdate.timer`, located in `~archived`, provide a timer to update dns records according to the script inside the `dns` folder using [dynamicdns.park-your-domain.com](https://dynamicdns.park-your-domain.com)
+
+- Copy both the `.service` and `.timer` file in `/et/systemd/system`
+- Create a file `~/dns/secrets_domain` containing the domais to update
+- Create a file `~/dns/secrets_password`containing your dns pasword for authentication
+- **Remember to make these file not readable from other users** (`600` permissions)
+
+> Start the service
+
+> ```sh
+> systemctl enable --now dnsupdate.service
+> ```
+
+> Manually run DNS update
+
+> ```sh
+> ./dnsup config
+> ```
+
+**Remember:** you have to manually create the * and @ recofd the first time, the script can only update them, otherwise it will return an error
+
+### Wireguard interface creation
+
+Create a `config` file in the local wireguard directory, setting the variables
+
+- `export SERVER_DOMAIN=<myDomain>`
+- `export SERVER_PORT=<myPort>` And add executable privileges to the owner (better if setting `700` permissions)
 
 Generate wireguard interface configurations using
 
-```sh
-# ./setup_server
-```
-to create the server config interface
-```sh
-# ./setup_client <hostname> <index_in_the_subnet>
-```
-to create the client config
+> Create the server config interface
 
-To share config use something like qrencode, don't send your keys around the internet
+> ```sh
+> ./setup_server
+> ```
 
-# Docker keys generation
-To generate keys move to the `~/docker` folder and create a `keys` file with permissions `700`
-to add a new key as environment variable use the comand
-```sh
-./addkey <VARIABLE_NAME>
-```
-Remember to `source ~/docker/keys` before starting the docker compose
+> Create the config for each client
+
+> ```sh
+> ./setup_client <hostname> <index_in_the_subnet>
+> ```
+
+> You can share confogs using QRs
+
+> ```sh
+> qrencode -t ANSI -r /etc/wireguard/<hostname>.conf
+> ```
+
+don't send your keys around the internet
+
+### NAT and firewall
+
+The specific router used has WebUI running on `:80` and `:443` for local `http` and remote `https` configuration, usually move local configuration to `:8080` and disable remote configuration `https` **BUT** my router still reserve `:443` even if remote configuration is disabled, so move it to another port in order to expose `:443`
+
+Open specific ports:
+
+port                | dest                            | protocol | service
+------------------- | ------------------------------- | -------- | -----------------
+`:80`               | `<server_addr>:80`              | TCP      | certbot
+`:443`              | `<server_addr>:443`             | TCP      | traefik websecure
+`:<global_wg_port>` | `<server_addr>:<local_wg_port>` | UDP      | wireguard
+
+## Docker Setup
+
+### Services key generation
+
+`docker-compose.yml` accepts environment variables, here used to separate secrets from the config, all secrets will be written in a file `~/docker/keys`, is this unsafe? Who knows.
+
+> Create a key file in ~/docker/
+
+> ```sh
+> cd ~/docker
+> touch keys
+> chmod 700 keys
+> ```
+
+> Add a specific variable name with a random key
+
+> ```sh
+> ./addkey <VARIABLE_NAME> # will simply write `export VARIABLE_NAME=<random>` to ./docker/keys
+> ```
+
+Remember to `source ~/docker/keys` before starting containers, otherwise you will get an error of missing variables
 
 ## Services setup
-`docker-compose.yml` sets up
-- `nginx` reverse proxy to manage certificates
+
+- Services are all in a single docker-compose, alternative service can be started separately
+- ~~`nginx`~~ `traefik` reverse proxy to manage certificates and connections
 - `bitwarden` password manager
-- `pi-hole` local DNS for ad blocking
+- `pihole` local DNS and DNS blocking
+- `jellyfin` media serve
 
-# === FROM OLD HABENARIA ===
+> Source the key file and start docker, better if from a tmux session
 
-# Habenaria
+> ```sh
+> tmux
+> source docker/keys
+> docker compose up
+> ```
 
-## Generate DB keys
+### Additional configuration
 
-1. If the system does not use any other disk encryption, encrypt the folder containing the key
+> attach a shell to a running container to edit it
 
-    ```sh
-    # fscrypt setup
-    # fscrypt encrypt nextcloud/keys
-    ```
-    To unlock this folder use
-    ```sh
-    # fscrypt unlock nextcloud/keys
-    ```
+> ```sh
+> docker exec -it <container> sh
+> ```
 
-2. Generate keys to use for for MariaDB
+- `pihole` password can be changed once the container already started, follow the instructions on the admin page
+- Disable `traefik` dashboard once you are sure everything is working fine
 
-    ```sh
-    # openssl rand -base64 32 > nextcloud/keys/MYSQL_KEY
-    # openssl rand -base64 32 > nextcloud/keys/MYSQL_ROOT_KEY
-    ```
+## Traefik config
 
-## Source DB keys
+> Copy the traefik config folder in `~/docker` when you update it
 
-Source generated keys with
+> ```sh
+> sudo cp traefik docker
+> ```
 
-```sh
-# source nextcloud/setkeys
-```
+- From `docker-compose.yml`:
 
-## Services setup
-Docker compose will set up
-- `nginx-proxy-manager` to manage certificates
-- `nextcloud`
-- `mariadb`
+  - Expose needed ports and bind volumes, everything should already be in the compose already
+  - Remember to bind services to expose to the `frontend` network
 
-Be sure **keys are sourced** and unlocked before starting the container,
-otherwise it will have no access to the DB
+- From `traefik.yml`
+
+  - Disable dashboard once everything is working properly
+
+- From `dynamic.yml`
+
+  - add `routers` and `services` entry for each new service created, specifying what rules to follow for route match, certificate provider and destination container:port
+
+# More setups, not used now
 
 ## Proxy setup for nextcloud
 
-Nextcloud notices being behind a reverse proxy, to prevent annoying warnings
-configure nextcloud to recognise this proxy as trusted
+Nextcloud notices being behind a reverse proxy, to prevent annoying warnings configure nextcloud to recognise this proxy as trusted
 
 Edit `nextcloud/nextcloud/config/config.php` with the following changes
+
 ```php
 // ...
 

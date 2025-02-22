@@ -1,0 +1,49 @@
+# Dynamic traefik configuration
+
+# # Example entry
+# routers:
+#   <router-name>:
+#     service: <service-name>
+#     rule: Host(`<domain-to-match>`) && ClientIP(`<authorized-IPs>`)
+#     entrypoint:
+#       - websecure
+#     tls:
+#       certresolver: letsencrypt
+# 
+# services:
+#   <service-name>:
+#     loadbalancer:
+#       servers:
+#         - url: http://<container-name>:port
+
+http:
+  routers:
+
+    bitwarden:
+      service: bitwarden
+      rule: Host(`bitwarden.kantai.online`) && ClientIP(`10.100.0.0/24`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+    jellyfin:
+      service: jellyfin
+      rule: Host(`movie.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+  services:
+
+    bitwarden:
+      loadbalancer:
+        servers:
+          - url: http://bitwarden:80
+
+    jellyfin:
+      loadbalancer:
+        servers:
+          - url: http://jellyfin:8096
+

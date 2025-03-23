@@ -1,6 +1,9 @@
 #!/bin/bash
 
+## Change <username> with your username
+THIS="/home/<username>/dns"
+
 BASE_LINK='https://dynamicdns.park-your-domain.com'
 HOSTS='@ *'
-DOMAINS="$(cat secrets_domain)"
-PASSWORD="$(cat secrets_password)"
+DOMAINS="$(cat $THIS/secrets_domain)"
+PASSWORD="$(cat $THIS/secrets_password)"

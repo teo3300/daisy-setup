@@ -21,7 +21,7 @@ http:
 
     bitwarden:
       service: bitwarden
-      rule: Host(`bitwarden.kantai.online`) && ClientIP(`10.100.0.0/24`)
+      rule: Host(`bitwarden.kantai.online`) && ( ClientIP(`10.100.0.0/24`) || ClientIP(`192.168.1.0/24`) )
       entrypoints:
         - websecure
       tls:
@@ -29,7 +29,34 @@ http:
 
     jellyfin:
       service: jellyfin
-      rule: Host(`movie.kantai.online`)
+      rule: Host(`media.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+    pihole:
+      service: pihole
+      rule: Host(`pihole.kantai.online`) && ( ClientIP(`10.100.0.0/24`) || ClientIP(`192.168.1.0/24`) )
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+    nextcloud:
+      service: nextcloud
+      rule: Host(`drive.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+      middlewares: 
+        - nextcloud_redirectregex
+        - nextcloud_sts
+
+    vikunja:
+      service: vikunja
+      rule: Host(`todo.kantai.online`)
       entrypoints:
         - websecure
       tls:
@@ -47,3 +74,31 @@ http:
         servers:
           - url: http://jellyfin:8096
 
+    pihole:
+      loadbalancer:
+        servers:
+          - url: http://pihole:80
+
+    nextcloud:
+      loadbalancer:
+        servers:
+          - url: http://nextcloud:80
+
+    vikunja:
+      loadbalancer:
+        servers:
+          - url: http://vikunja:3456
+
+  middlewares:
+
+  # Rnable redirect for CalDAV & cardDAV
+    nextcloud_redirectregex:
+      redirectregex:
+        permanent: true
+        regex: 'https://(.*)/.well-known/(?:card|cal)dav'
+        replacement: 'https://${1}/remote.php/dav'
+
+  # Requested for security reasons
+    nextcloud_sts:
+      headers:
+        stsSeconds: 15552000

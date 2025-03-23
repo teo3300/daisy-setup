@@ -36,7 +36,7 @@ I'm using networkmanager because I am lazy. According to [this blog](https://mic
 > systemctl enable --now dnsupdate.service
 > ```
 
-> Manually run DNS update
+> Manually run DNS update, **NOTE**: remember to update \<username\> in the `config`
 
 > ```sh
 > ./dnsup config
@@ -46,10 +46,12 @@ I'm using networkmanager because I am lazy. According to [this blog](https://mic
 
 ### Wireguard interface creation
 
-Create a `config` file in the local wireguard directory, setting the variables
-
-- `export SERVER_DOMAIN=<myDomain>`
-- `export SERVER_PORT=<myPort>` And add executable privileges to the owner (better if setting `700` permissions)
+> Create a `config` file in the local wireguard directory, setting the variables. Add executable privileges to the owner (better if setting `700` permissions)
+```sh
+#!/bin/sh
+export SERVER_DOMAIN=<myDomain>
+export SERVER_PORT=<myPort>
+```
 
 Generate wireguard interface configurations using
 
@@ -155,7 +157,7 @@ Remember to `source ~/docker/keys` before starting containers, otherwise you wil
 
   - add `routers` and `services` entry for each new service created, specifying what rules to follow for route match, certificate provider and destination container:port
 
-# More setups, not used now
+# More setups
 
 ## Proxy setup for nextcloud
 
@@ -176,6 +178,18 @@ Edit `nextcloud/nextcloud/config/config.php` with the following changes
 'overwriteprotocol' => 'https',
 
 // ...
+```
+
+## Jellyfin hw acceleration
+
+To have hardware acceleration, depending on the used GPU follow the instruction on [jellyfin's website](https://jellyfin.org/docs/general/administration/hardware-acceleration/nvidia/#configure-with-linux-virtualization) and remember to install `nvidia` drivers and `nvidia-smi`
+
+## Pacman multithread (when running on arch)
+
+> Edit `/etc/pacman.conf` to include 
+
+```conf
+ParallelDownloads = 5
 ```
 
 Then restart the containers

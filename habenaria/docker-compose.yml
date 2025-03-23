@@ -1,42 +1,34 @@
-# Remember that volumes are mounted as:
-# - host/path:container/path
-
-# to connect to traefik, on a service:
-# labels:
-#   - traefik.enable=true # if not already "expose by default"
-# # note that "router-name" is user-specified
-#   - traefik.http.routers.<router-name>.rule=<rule to match> # https://doc.traefik.io/traefik/routing/routers/#rule for more info
-#   - traefik.http.routers.<router-name>.entrypoints=<entrypoint to use> (web, websecure, etc)
-## Ideally traefik should be on a different file so it can update config without restarting
-
-# Define network for exposing services
-
 networks:
   frontend:
     driver: bridge
+  nextcloud-backend:
+    driver: bridge
+  vikunja-backend:
+    driver: bridge
 
 services:
+
 # Reverse proxy
   traefik:
-    image: 'traefik:latest'
+    image: traefik:latest
     restart: unless-stopped
     container_name: 'traefik'
     ports:
       - '80:80'
       - '443:443'
-      # Web-UI
+    # Web-UI
       - '8080:8080'
     networks:
       - frontend
     volumes:
-      # to listen to docker events
-      - ./docker/traefik:/etc/traefik
+    # to listen to docker events
+      - ./traefik:/etc/traefik
       - ./docker/ssl-certs:/ssl-certs
       - /var/run/docker.sock:/var/run/docker.sock
 
 # Password manager
   bitwarden:
-    image: 'vaultwarden/server:latest'
+    image: vaultwarden/server:latest
     restart: unless-stopped
     container_name: 'bitwarden'
     volumes:
@@ -46,21 +38,19 @@ services:
 
 # Local DNS
   pihole:
-    image: 'pihole/pihole:latest'
+    image: pihole/pihole:latest
     restart: unless-stopped
     container_name: 'pihole'
     ports:
       - '53:53/tcp'
       - '53:53/udp'
       - '67:67/udp'
-      - '81:80'
-      # Used during setup since the raspberry cannot yet point to itself
     volumes:
       - ./docker/pihole/etc/pihole:/etc/pihole
       - ./docker/pihole/etc/dnsmasq.d:/etc/dnsmasq.d
     environment:
       TZ: 'Europe/Rome'
-      WEBPASSWORD: "${PIHOLE_WEBPASSWORD}" 
+      WEBPASSWORD: '${PIHOLE_WEBPASSWORD}'
     networks:
       - frontend
 
@@ -69,6 +59,7 @@ services:
     image: 'jellyfin/jellyfin'
     restart: unless-stopped
     container_name: 'jellyfin'
+    user: 1000:1000
     volumes:
       - ./docker/jellyfin/config:/config
       - ./docker/jellyfin/cache:/cache
@@ -83,9 +74,108 @@ services:
         source: ./docker/jellyfin/fonts
         target: /usr/local/share/fonts/custom
         read_only: true
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       - JELLYFIN_PublishedServerUrl=movie.kantai.online
+      - TZ=Europe/Rome
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks:
       - frontend
+
+# Nextcloud's holy trinity
+
+# nextcloud db
+  nextcloud-db:
+    image: mariadb:10.6
+    container_name: 'nextcloud-db'
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    volumes:
+      - ./docker/nextcloud/db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_DB_ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+    networks:
+      - nextcloud-backend
+
+# nextcloud frontend
+  nextcloud:
+    image: nextcloud
+    restart: unless-stopped
+    container_name: 'nextcloud'
+    links:
+      - nextcloud-db
+    ##  - nextcloud-redis
+    volumes:
+      - ./docker/nextcloud/app:/var/www/html
+    ##  - /tmp/nextcloud-redis.sock:/var/run/redis/redis.sock
+    environment:
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_HOST=nextcloud-db
+    networks:
+      - nextcloud-backend
+      - frontend
+
+##  nextcloud-redis:
+##    image: redis:alpine
+##    container_name: 'nextcloud-redis'
+##    restart: unless-stopped
+##    volumes: 
+##      - /tmp/nextcloud-redis.sock:/var/run/redis/redis.sock
+##    networks:
+##      - nextcloud-backend
+
+# Vikunja
+  vikunja:
+    image: vikunja/vikunja
+    restart: unless-stopped
+    container_name: 'vikunja'
+    environment:
+      - VIKUNJA_SERVICE_PUBLICURL=https://todo.kantai.online
+      - VIKUNJA_DATABASE_HOST=vikunja-db
+      - VIKUNJA_DATABASE_PASSWORD=${VIKUNJA_DB_PASSWORD}
+      - VIKUNJA_DATABASE_TYPE=mysql
+      - VIKUNJA_DATABASE_USER=vikunja
+      - VIKUNJA_DATABASE_DATABASE=vikunja
+      - VIKUNJA_SERVICE_JWTSECRET=${VIKUNJA_JWT_PASSWORD}
+      - enableregistration=false
+      - timezone=Europe/Rome
+    volumes:
+      - ./docker/vikunja/files:/app/vikunja/files
+    depends_on:
+      vikunja-db:
+        condition: service_healthy
+    networks:
+      - vikunja-backend
+      - frontend
+
+  vikunja-db:
+    image: mariadb:10
+    restart: unless-stopped
+    container_name: 'vikunja-db'
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      - MYSQL_ROOT_PASSWORD=${VIKUNJA_DB_ROOT_PASSWORD}
+      - MYSQL_USER=vikunja
+      - MYSQL_PASSWORD=${VIKUNJA_DB_PASSWORD}
+      - MYSQL_DATABASE=vikunja
+    volumes:
+      - ./docker/vikunja/db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
+      interval: 2s
+      start_period: 30s
+    networks:
+      - vikunja-backend

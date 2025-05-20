@@ -11,7 +11,7 @@ api:
 entryPoints:
   web:
     address: :80
-    # To force HTTPS: enable this later
+    ## To force HTTPS: enable this later
     http:
       redirections:
         entryPoint:

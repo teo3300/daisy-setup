@@ -62,6 +62,22 @@ http:
       tls:
         certresolver: letsencrypt
 
+    serben-rust:
+      service: serben-rust
+      rule: Host(`serben.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+    navidrome:
+      service: navidrome
+      rule: Host(`music.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
   services:
 
     bitwarden:
@@ -89,9 +105,24 @@ http:
         servers:
           - url: http://vikunja:3456
 
+    serben-rust:
+      loadbalancer:
+        servers:
+          - url: http://serben-rust:8123
+
+    sharelatex:
+      loadbalancer:
+        servers:
+          - url: http://sharelatex:80
+
+    navidrome:
+      loadbalancer:
+        servers:
+          - url: http://navidrome:4533
+
   middlewares:
 
-  # Rnable redirect for CalDAV & cardDAV
+  # Enable redirect for CalDAV & cardDAV
     nextcloud_redirectregex:
       redirectregex:
         permanent: true

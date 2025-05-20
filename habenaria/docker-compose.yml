@@ -115,27 +115,18 @@ services:
     container_name: 'nextcloud'
     links:
       - nextcloud-db
-    ##  - nextcloud-redis
     volumes:
       - ./docker/nextcloud/app:/var/www/html
-    ##  - /tmp/nextcloud-redis.sock:/var/run/redis/redis.sock
     environment:
       - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
       - MYSQL_HOST=nextcloud-db
+    depends_on:
+      - nextcloud-db
     networks:
       - nextcloud-backend
       - frontend
-
-##  nextcloud-redis:
-##    image: redis:alpine
-##    container_name: 'nextcloud-redis'
-##    restart: unless-stopped
-##    volumes: 
-##      - /tmp/nextcloud-redis.sock:/var/run/redis/redis.sock
-##    networks:
-##      - nextcloud-backend
 
 # Vikunja
   vikunja:
@@ -179,3 +170,14 @@ services:
       start_period: 30s
     networks:
       - vikunja-backend
+
+  navidrome:
+    image: deluan/navidrome
+    restart: unless-stopped
+    container_name: navidrome
+    user: 1000:1000
+    volumes:
+      - ./docker/navidrome/data:/data
+      - ./docker/navidrome/music:/music:ro
+    networks:
+      - frontend

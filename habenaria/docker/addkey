@@ -1,8 +1,10 @@
 #!/bin/sh
 
+set -e
+
 if [[ "$#" -ne 1 ]]; then
-    specify a '$VARIABLE_NAME' to add
+    echo specify a '$VARIABLE_NAME' to add
     false
 fi
 KEY=$(openssl rand -base64 32)
-echo 'export '$1='"'$KEY'"' >> $HOME/docker/keys
+echo $1='"'$KEY'"' >> $HOME/.env

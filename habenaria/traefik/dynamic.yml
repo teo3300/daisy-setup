@@ -1,6 +1,6 @@
 # Dynamic traefik configuration
 
-# # Example entry
+# # Example entry {{{
 # routers:
 #   <router-name>:
 #     service: <service-name>
@@ -15,10 +15,11 @@
 #     loadbalancer:
 #       servers:
 #         - url: http://<container-name>:port
+# }}}
 
 http:
   routers:
-
+# Routers {{{
     bitwarden:
       service: bitwarden
       rule: Host(`bitwarden.kantai.online`) && ( ClientIP(`10.100.0.0/24`) || ClientIP(`192.168.1.0/24`) )
@@ -64,7 +65,7 @@ http:
 
     serben-rust:
       service: serben-rust
-      rule: Host(`serben.kantai.online`)
+      rule: Host(`serben.kantai.online`) || Host(`kantai.online`)
       entrypoints:
         - websecure
       tls:
@@ -77,8 +78,10 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+# }}}
 
   services:
+# Services {{{
 
     bitwarden:
       loadbalancer:
@@ -119,8 +122,10 @@ http:
       loadbalancer:
         servers:
           - url: http://navidrome:4533
+# }}}
 
   middlewares:
+# Middlewares {{{
 
   # Enable redirect for CalDAV & cardDAV
     nextcloud_redirectregex:
@@ -133,3 +138,4 @@ http:
     nextcloud_sts:
       headers:
         stsSeconds: 15552000
+# }}}

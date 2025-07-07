@@ -1,3 +1,4 @@
+# Networks definition {{{
 networks:
   frontend:
     driver: bridge
@@ -5,10 +6,10 @@ networks:
     driver: bridge
   vikunja-backend:
     driver: bridge
+# }}}
 
 services:
-
-# Reverse proxy
+# Reverse proxy (traefik) {{{
   traefik:
     image: traefik:latest
     restart: unless-stopped
@@ -25,8 +26,9 @@ services:
       - ./traefik:/etc/traefik
       - ./docker/ssl-certs:/ssl-certs
       - /var/run/docker.sock:/var/run/docker.sock
+# }}}
 
-# Password manager
+# Password manager (bitwarden) {{{
   bitwarden:
     image: vaultwarden/server:latest
     restart: unless-stopped
@@ -35,8 +37,9 @@ services:
       - ./docker/vw-data:/data
     networks:
       - frontend
+# }}}
 
-# Local DNS
+# Local DNS (pihole) {{{
   pihole:
     image: pihole/pihole:latest
     restart: unless-stopped
@@ -53,8 +56,9 @@ services:
       WEBPASSWORD: '${PIHOLE_WEBPASSWORD}'
     networks:
       - frontend
+# }}}
 
-# Media streaming
+# Media streaming (jellyfin) {{{
   jellyfin:
     image: 'jellyfin/jellyfin'
     restart: unless-stopped
@@ -89,10 +93,10 @@ services:
       - 'host.docker.internal:host-gateway'
     networks:
       - frontend
+# }}}
 
-# Nextcloud's holy trinity
-
-# nextcloud db
+# Drive (nextcloud) {{{
+  # Database (mariadb) {{{
   nextcloud-db:
     image: mariadb:10.6
     container_name: 'nextcloud-db'
@@ -107,8 +111,9 @@ services:
       - MYSQL_USER=nextcloud
     networks:
       - nextcloud-backend
+  # }}}
 
-# nextcloud frontend
+  # Frontend (nextcloud) {{{
   nextcloud:
     image: nextcloud
     restart: unless-stopped
@@ -127,8 +132,11 @@ services:
     networks:
       - nextcloud-backend
       - frontend
+  # }}}
+# }}}
 
-# Vikunja
+# ToDoList (vikunja) {{{
+  # Frontend (vikunja) {{{
   vikunja:
     image: vikunja/vikunja
     restart: unless-stopped
@@ -151,7 +159,9 @@ services:
     networks:
       - vikunja-backend
       - frontend
+  # }}}
 
+  # Database (mariadb) {{{
   vikunja-db:
     image: mariadb:10
     restart: unless-stopped
@@ -170,7 +180,10 @@ services:
       start_period: 30s
     networks:
       - vikunja-backend
+  # }}}
+# }}}
 
+# Music streaming (navidrome) {{{
   navidrome:
     image: deluan/navidrome
     restart: unless-stopped
@@ -181,3 +194,4 @@ services:
       - ./docker/navidrome/music:/music:ro
     networks:
       - frontend
+# }}}

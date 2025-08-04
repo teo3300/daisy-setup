@@ -1,19 +1,28 @@
-# Networks definition {{{
+# vim:foldmethod=marker:fmr=<<<,>>>
+
+# Networks definition <<<
 networks:
   frontend:
     driver: bridge
   nextcloud-backend:
     driver: bridge
+  gitea-backend:
+    driver: bridge
+  synapse-backend:
+    driver: bridge
   vikunja-backend:
     driver: bridge
-# }}}
+# >>>
 
 services:
-# Reverse proxy (traefik) {{{
+# Reverse proxy (traefik) <<<
   traefik:
     image: traefik:latest
     restart: unless-stopped
     container_name: 'traefik'
+    profiles:
+      - network
+      - core
     ports:
       - '80:80'
       - '443:443'
@@ -24,26 +33,32 @@ services:
     volumes:
     # to listen to docker events
       - ./traefik:/etc/traefik
-      - ./docker/ssl-certs:/ssl-certs
+      - ./docker/traefik/ssl-certs:/ssl-certs
       - /var/run/docker.sock:/var/run/docker.sock
-# }}}
+# >>>
 
-# Password manager (bitwarden) {{{
+# Password manager (bitwarden) <<<
   bitwarden:
     image: vaultwarden/server:latest
     restart: unless-stopped
     container_name: 'bitwarden'
+    profiles:
+      - service
+      - core
     volumes:
       - ./docker/vw-data:/data
     networks:
       - frontend
-# }}}
+# >>>
 
-# Local DNS (pihole) {{{
+# Local DNS (pihole) <<<
   pihole:
     image: pihole/pihole:latest
     restart: unless-stopped
     container_name: 'pihole'
+    profiles:
+      - network
+      - core
     ports:
       - '53:53/tcp'
       - '53:53/udp'
@@ -56,13 +71,16 @@ services:
       WEBPASSWORD: '${PIHOLE_WEBPASSWORD}'
     networks:
       - frontend
-# }}}
+# >>>
 
-# Media streaming (jellyfin) {{{
+# Media streaming (jellyfin) <<<
   jellyfin:
     image: 'jellyfin/jellyfin'
     restart: unless-stopped
     container_name: 'jellyfin'
+    profiles:
+      - service
+      - intensive
     user: 1000:1000
     volumes:
       - ./docker/jellyfin/config:/config
@@ -93,17 +111,25 @@ services:
       - 'host.docker.internal:host-gateway'
     networks:
       - frontend
-# }}}
+# >>>
 
-# Drive (nextcloud) {{{
-  # Database (mariadb) {{{
+# Drive (nextcloud) <<<
+  # Database (mariadb) <<<
   nextcloud-db:
     image: mariadb:10.6
     container_name: 'nextcloud-db'
     restart: unless-stopped
     command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    profiles:
+      - service
+      - core
+      - intensive
     volumes:
       - ./docker/nextcloud/db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
+      interval: 2s
+      start_period: 30s
     environment:
       - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_DB_ROOT_PASSWORD}
       - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
@@ -111,13 +137,17 @@ services:
       - MYSQL_USER=nextcloud
     networks:
       - nextcloud-backend
-  # }}}
+  # >>>
 
-  # Frontend (nextcloud) {{{
-  nextcloud:
+  # Frontend (nextcloud) <<<
+  nextcloud-frontend:
     image: nextcloud
     restart: unless-stopped
-    container_name: 'nextcloud'
+    container_name: 'nextcloud-frontend'
+    profiles:
+      - service
+      - core
+      - intensive
     links:
       - nextcloud-db
     volumes:
@@ -128,19 +158,22 @@ services:
       - MYSQL_USER=nextcloud
       - MYSQL_HOST=nextcloud-db
     depends_on:
-      - nextcloud-db
+      nextcloud-db:
+        condition: service_healthy
     networks:
       - nextcloud-backend
       - frontend
-  # }}}
-# }}}
+  # >>>
+# >>>
 
-# ToDoList (vikunja) {{{
-  # Frontend (vikunja) {{{
-  vikunja:
+# ToDoList (vikunja) <<<
+  # Frontend (vikunja) <<<
+  vikunja-frontend:
     image: vikunja/vikunja
     restart: unless-stopped
-    container_name: 'vikunja'
+    container_name: 'vikunja-frontend'
+    profiles:
+     - service
     environment:
       - VIKUNJA_SERVICE_PUBLICURL=https://todo.kantai.online
       - VIKUNJA_DATABASE_HOST=vikunja-db
@@ -159,14 +192,16 @@ services:
     networks:
       - vikunja-backend
       - frontend
-  # }}}
+  # >>>
 
-  # Database (mariadb) {{{
+  # Database (mariadb) <<<
   vikunja-db:
     image: mariadb:10
     restart: unless-stopped
     container_name: 'vikunja-db'
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    profiles:
+      - service
     environment:
       - MYSQL_ROOT_PASSWORD=${VIKUNJA_DB_ROOT_PASSWORD}
       - MYSQL_USER=vikunja
@@ -180,18 +215,129 @@ services:
       start_period: 30s
     networks:
       - vikunja-backend
-  # }}}
-# }}}
+  # >>>
+# >>>
 
-# Music streaming (navidrome) {{{
+# Music streaming (navidrome) <<<
   navidrome:
     image: deluan/navidrome
     restart: unless-stopped
     container_name: navidrome
     user: 1000:1000
+    profiles:
+      - service
     volumes:
       - ./docker/navidrome/data:/data
       - ./docker/navidrome/music:/music:ro
     networks:
       - frontend
-# }}}
+# >>>
+
+# Matrix (synapse) <<<
+  synapse-frontend:
+    container_name: synapse-frontend
+    image: docker.io/matrixdotorg/synapse:latest
+    restart: unless-stopped
+    profiles:
+      - service
+    environment:
+      - UID=1000
+      - GID=1000
+      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+    depends_on:
+      synapse-db:
+        condition: service_healthy
+    volumes:
+      - ./docker/synapse/data:/data
+    networks:
+      - frontend
+      - synapse-backend
+
+  synapse-db:
+    image: postgres:15-alpine
+    container_name: synapse-db
+    restart: unless-stopped
+    profiles:
+      - service
+    volumes:
+      - ./docker/synapse/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 2s
+      start_period: 30s
+    environment:
+      POSTGRES_USER: 'synapse_user'
+      POSTGRES_PASSWORD: '${SYNAPSE_DB_PASSWORD}'
+      POSTGRES_DB: 'synapse'
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --lc-collate=C --lc-ctype=C'
+    networks:
+      - synapse-backend
+# >>>
+
+# Git (gitea) <<<
+  gitea-frontend:
+    container_name: gitea-frontend
+    image: docker.gitea.com/gitea:1.24.2-rootless
+    profiles:
+      - service
+      - core
+    restart: always
+    environment:
+      GITEA__database__DB_TYPE: 'postgres'
+      GITEA__database__HOST: 'gitea-db:5432'
+      GITEA__database__NAME: 'gitea'
+      GITEA__database__USER: 'gitea'
+      GITEA__database__PASSWD: '${GITEA_DB_PASSWORD}'
+    ## Should be in container's /etc/gitea/conf/app.ini
+    #  DISABLE_REGISTRATION: true
+    ports:
+      - '2222:2222'
+    depends_on:
+      gitea-db:
+        condition: service_healthy
+    volumes:
+      - ./docker/gitea/data:/var/lib/gitea
+      - ./docker/gitea/config:/etc/gitea
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - frontend
+      - gitea-backend
+
+  gitea-db:
+    image: postgres:17
+    container_name: gitea-db
+    restart: always
+    profiles:
+      - service
+      - core
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 2s
+      start_period: 30s
+    volumes:
+      - ./docker/gitea/db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: 'gitea'
+      POSTGRES_PASSWORD: '${GITEA_DB_PASSWORD}'
+      POSTGRES_DB: 'gitea'
+    networks:
+      - gitea-backend
+# >>>
+
+# Filesharing (copyparty) <<<
+  copyparty:
+    container_name: copyparty
+    image: copyparty/dj:latest
+    profiles:
+      - service
+    restart: unless-stopped
+    # ports:
+    #   - 3923 # <- Default port for everything
+    volumes:
+      # Edit /z/initcfg for config
+      - ./docker/copyparty/config:/z
+      - ./docker/copyparty/data:/w
+    networks:
+      - frontend
+# >>>

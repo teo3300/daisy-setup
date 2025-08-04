@@ -1,11 +1,12 @@
+# vim:foldmethod=marker:fmr=<<<,>>>
 # Dynamic traefik configuration
 
-# # Example entry {{{
+# Service template <<<
 # routers:
 #   <router-name>:
 #     service: <service-name>
 #     rule: Host(`<domain-to-match>`) && ClientIP(`<authorized-IPs>`)
-#     entrypoint:
+#     entrypoints:
 #       - websecure
 #     tls:
 #       certresolver: letsencrypt
@@ -15,22 +16,14 @@
 #     loadbalancer:
 #       servers:
 #         - url: http://<container-name>:port
-# }}}
+# >>>
 
 http:
   routers:
-# Routers {{{
+# Routers <<<
     bitwarden:
       service: bitwarden
       rule: Host(`bitwarden.kantai.online`) && ( ClientIP(`10.100.0.0/24`) || ClientIP(`192.168.1.0/24`) )
-      entrypoints:
-        - websecure
-      tls:
-        certresolver: letsencrypt
-
-    jellyfin:
-      service: jellyfin
-      rule: Host(`media.kantai.online`)
       entrypoints:
         - websecure
       tls:
@@ -55,17 +48,41 @@ http:
         - nextcloud_redirectregex
         - nextcloud_sts
 
-    vikunja:
-      service: vikunja
-      rule: Host(`todo.kantai.online`)
+    serben-rust:
+      service: serben-rust
+      rule: Host(`serben.kantai.online`)
       entrypoints:
         - websecure
       tls:
         certresolver: letsencrypt
 
-    serben-rust:
-      service: serben-rust
-      rule: Host(`serben.kantai.online`) || Host(`kantai.online`)
+    gitea:
+      service: gitea
+      rule: Host(`git.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+    copyparty:
+      service: copyparty
+      rule: Host(`files.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+    jellyfin:
+      service: jellyfin
+      rule: Host(`media.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+
+    vikunja:
+      service: vikunja
+      rule: Host(`todo.kantai.online`)
       entrypoints:
         - websecure
       tls:
@@ -78,20 +95,23 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
-# }}}
+
+    synapse:
+      service: synapse
+      rule: Host(`chat.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+# >>>
 
   services:
-# Services {{{
+# Services <<<
 
     bitwarden:
       loadbalancer:
         servers:
           - url: http://bitwarden:80
-
-    jellyfin:
-      loadbalancer:
-        servers:
-          - url: http://jellyfin:8096
 
     pihole:
       loadbalancer:
@@ -101,31 +121,46 @@ http:
     nextcloud:
       loadbalancer:
         servers:
-          - url: http://nextcloud:80
-
-    vikunja:
-      loadbalancer:
-        servers:
-          - url: http://vikunja:3456
+          - url: http://nextcloud-frontend:80
 
     serben-rust:
       loadbalancer:
         servers:
           - url: http://serben-rust:8123
 
-    sharelatex:
+    gitea:
       loadbalancer:
         servers:
-          - url: http://sharelatex:80
+          - url: http://gitea-frontend:3000
+
+    copyparty:
+      loadbalancer:
+        servers:
+          - url: http://copyparty:3923
+
+    jellyfin:
+      loadbalancer:
+        servers:
+          - url: http://jellyfin:8096
+
+    vikunja:
+      loadbalancer:
+        servers:
+          - url: http://vikunja-frontend:3456
 
     navidrome:
       loadbalancer:
         servers:
           - url: http://navidrome:4533
-# }}}
+
+    synapse:
+      loadbalancer:
+        servers:
+          - url: http://synapse-frontend:8008
+# >>>
 
   middlewares:
-# Middlewares {{{
+# Middlewares <<<
 
   # Enable redirect for CalDAV & cardDAV
     nextcloud_redirectregex:
@@ -138,4 +173,4 @@ http:
     nextcloud_sts:
       headers:
         stsSeconds: 15552000
-# }}}
+# >>>

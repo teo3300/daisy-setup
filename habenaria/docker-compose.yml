@@ -124,6 +124,7 @@ services:
       - service
       - core
       - intensive
+      - nextcloud
     volumes:
       - ./docker/nextcloud/db:/var/lib/mysql
     healthcheck:
@@ -148,6 +149,7 @@ services:
       - service
       - core
       - intensive
+      - nextcloud
     links:
       - nextcloud-db
     volumes:
@@ -160,10 +162,28 @@ services:
     depends_on:
       nextcloud-db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - nextcloud-backend
       - frontend
   # >>>
+  
+  # File locking (redis) <<<
+  redis:
+    image: redis:latest
+    restart: unless-stopped
+    container_name: redis
+    profiles:
+      - service
+      - core
+      - intensive
+      - nextcloud
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli", "--raw", "incr", "ping"]
+
+  # >>>
+
 # >>>
 
 # ToDoList (vikunja) <<<

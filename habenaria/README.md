@@ -274,3 +274,10 @@ Default config used for copyparty, copy content in
   flags:
     fk
 ```
+
+## ADD:
+
+- syncthing setup remote gui for server
+  - syncthing cli config gui raw-address set <VPN_IP>:<SYNCTHING_PORT>
+  - setup password from gui
+  - OPTIONAL: just put syncthing behind traefik in docker container (core)

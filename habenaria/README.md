@@ -152,6 +152,7 @@ All docker compose commands can specify a profile, so `down` also allows to turn
 > ```
 
 - `pihole` password can be changed once the container already started, follow the instructions on the admin page
+- Autoredirection from `/` to `/admin` for pihole is set by default after settig `webserver.domain` in `pihole.toml` in the pihole config
 - Disable `traefik` dashboard once you are sure everything is working fine
 
 ## Traefik config

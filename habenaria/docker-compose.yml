@@ -10,6 +10,8 @@ networks:
     driver: bridge
   synapse-backend:
     driver: bridge
+  jellyfin-backend:
+    driver: bridge
   vikunja-backend:
     driver: bridge
 # >>>
@@ -74,6 +76,8 @@ services:
 # >>>
 
 # Media streaming (jellyfin) <<<
+
+  # Application (jellyfin) <<<
   jellyfin:
     image: 'jellyfin/jellyfin'
     restart: unless-stopped
@@ -81,6 +85,7 @@ services:
     profiles:
       - service
       - intensive
+      - jellyfin
     user: 1000:1000
     volumes:
       - ./docker/jellyfin/config:/config
@@ -88,6 +93,7 @@ services:
       - type: bind
         source: ./docker/jellyfin/media
         target: /media
+        read_only: true
       - type: bind
         source: ./docker/jellyfin/media2
         target: /media2
@@ -105,12 +111,59 @@ services:
               count: all
               capabilities: [gpu]
     environment:
-      - JELLYFIN_PublishedServerUrl=movie.kantai.online
-      - TZ=Europe/Rome
+      JELLYFIN_PublishedServerUrl: movie.kantai.online
+      TZ: Europe/Rome
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks:
+      - jellyfin-backend
       - frontend
+  # >>>
+
+  # Indexer (prowlar) <<<
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr
+    container_name: prowlarr
+    ports:
+      - '9696:9696'
+    profiles:
+      - services
+      - jellyfin
+    environment:
+      PUID: 1000
+      PGID: 1000
+      UMASK: 002
+      TZ: Europe/Rome
+    volumes:
+     - ./docker/prowlarr/config:/config
+    networks:
+      - jellyfin-backend
+      - frontend
+  # >>>
+
+  # TV-series manager (sonarr) <<<
+  sonarr:
+    image: ghcr.io/hotio/sonarr
+    container_name: sonarr
+    ports:
+      - "8989:8989"
+    profiles:
+      - services
+      - jellyfin
+    environment:
+      PUID: 1000
+      PGID: 1000
+      UMASK: 002
+      TZ: Europe/Rome
+    volumes:
+      - ./docker/sonarr/config:/config
+      - ./docker/sonarr/data:/data
+      - ./docker/jellyfin/media:/media
+    networks:
+      - jellyfin-backend
+      - frontend
+  # >>>
+
 # >>>
 
 # Drive (nextcloud) <<<
@@ -132,10 +185,10 @@ services:
       interval: 2s
       start_period: 30s
     environment:
-      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_DB_ROOT_PASSWORD}
-      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
+      MYSQL_ROOT_PASSWORD: '${NEXTCLOUD_DB_ROOT_PASSWORD}'
+      MYSQL_PASSWORD: '${NEXTCLOUD_DB_PASSWORD}'
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
     networks:
       - nextcloud-backend
   # >>>
@@ -155,10 +208,10 @@ services:
     volumes:
       - ./docker/nextcloud/app:/var/www/html
     environment:
-      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-      - MYSQL_HOST=nextcloud-db
+      MYSQL_PASSWORD: '${NEXTCLOUD_DB_PASSWORD}'
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_HOST: nextcloud-db
     depends_on:
       nextcloud-db:
         condition: service_healthy
@@ -195,17 +248,15 @@ services:
     profiles:
      - service
     environment:
-      - VIKUNJA_SERVICE_PUBLICURL=https://todo.kantai.online
-      - VIKUNJA_DATABASE_HOST=vikunja-db
-      - VIKUNJA_DATABASE_PASSWORD=${VIKUNJA_DB_PASSWORD}
-      - VIKUNJA_DATABASE_TYPE=mysql
-      - VIKUNJA_DATABASE_USER=vikunja
-      - VIKUNJA_DATABASE_DATABASE=vikunja
-      - VIKUNJA_SERVICE_JWTSECRET=${VIKUNJA_JWT_PASSWORD}
-      - enableregistration=false
-      - timezone=Europe/Rome
-    volumes:
-      - ./docker/vikunja/files:/app/vikunja/files
+      VIKUNJA_SERVICE_PUBLICURL: https://todo.kantai.online
+      VIKUNJA_DATABASE_HOST: vikunja-db
+      VIKUNJA_DATABASE_PASSWORD: '${VIKUNJA_DB_PASSWORD}'
+      VIKUNJA_DATABASE_TYPE: mysql
+      VIKUNJA_DATABASE_USER: vikunja
+      VIKUNJA_DATABASE_DATABASE: vikunja
+      VIKUNJA_SERVICE_JWTSECRET: '${VIKUNJA_JWT_PASSWORD}'
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: false
+      VIKUNJA_SERVICE_TIMEZONE: Europe/Rome
     depends_on:
       vikunja-db:
         condition: service_healthy
@@ -223,10 +274,10 @@ services:
     profiles:
       - service
     environment:
-      - MYSQL_ROOT_PASSWORD=${VIKUNJA_DB_ROOT_PASSWORD}
-      - MYSQL_USER=vikunja
-      - MYSQL_PASSWORD=${VIKUNJA_DB_PASSWORD}
-      - MYSQL_DATABASE=vikunja
+      MYSQL_ROOT_PASSWORD: '${VIKUNJA_DB_ROOT_PASSWORD}'
+      MYSQL_USER: vikunja
+      MYSQL_PASSWORD: '${VIKUNJA_DB_PASSWORD}'
+      MYSQL_DATABASE: vikunja
     volumes:
       - ./docker/vikunja/db:/var/lib/mysql
     healthcheck:
@@ -237,22 +288,22 @@ services:
       - vikunja-backend
   # >>>
 # >>>
-
-# Music streaming (navidrome) <<<
-  navidrome:
-    image: deluan/navidrome
-    restart: unless-stopped
-    container_name: navidrome
-    user: 1000:1000
-    profiles:
-      - service
-    volumes:
-      - ./docker/navidrome/data:/data
-      - ./docker/navidrome/music:/music:ro
-    networks:
-      - frontend
-# >>>
-
+## 
+## # Music streaming (navidrome) <<<
+##   navidrome:
+##     image: deluan/navidrome
+##     restart: unless-stopped
+##     container_name: navidrome
+##     user: 1000:1000
+##     profiles:
+##       - service
+##     volumes:
+##       - ./docker/navidrome/data:/data
+##       - ./docker/navidrome/music:/music:ro
+##     networks:
+##       - frontend
+## # >>>
+## 
 # Matrix (synapse) <<<
   synapse-frontend:
     container_name: synapse-frontend
@@ -261,9 +312,9 @@ services:
     profiles:
       - service
     environment:
-      - UID=1000
-      - GID=1000
-      - SYNAPSE_CONFIG_PATH=/data/homeserver.yaml
+      UID: 1000
+      GID: 1000
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
     depends_on:
       synapse-db:
         condition: service_healthy
@@ -345,19 +396,18 @@ services:
       - gitea-backend
 # >>>
 
-# Filesharing (copyparty) <<<
-  copyparty:
-    container_name: copyparty
-    image: copyparty/dj:latest
+# Docker cockpit (portainer) <<<
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:lts
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker/portainer:/data
     profiles:
       - service
-    restart: unless-stopped
-    # ports:
-    #   - 3923 # <- Default port for everything
-    volumes:
-      # Edit /z/initcfg for config
-      - ./docker/copyparty/config:/z
-      - ./docker/copyparty/data:/w
     networks:
       - frontend
+# >>>
+
 # >>>

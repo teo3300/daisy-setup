@@ -45,6 +45,7 @@ http:
       tls:
         certresolver: letsencrypt
       middlewares: 
+        - geoblock
         - nextcloud_redirectregex
         - nextcloud_sts
 
@@ -71,6 +72,8 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+      middlewares:
+        - geoblock
 
     jellyfin:
       service: jellyfin
@@ -79,6 +82,8 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+      middlewares:
+        - geoblock
 
     portainer:
       service: portainer
@@ -87,6 +92,8 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+      middlewares:
+        - fail2ban
 
 ##    prowlarr:
 ##      service: prowlarr
@@ -111,6 +118,7 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+
 # >>>
 
   services:
@@ -187,5 +195,36 @@ http:
     nextcloud_sts:
       headers:
         stsSeconds: 15552000
+
+  # Block IPs from countries that are not in the allowed list
+    geoblock:
+      plugin:
+        geoblock:
+          allowLocalRequests: true
+          allowUnknownCountries: false
+          api: https://get.geojs.io/v1/ip/country/{ip}
+          apiTimeoutMs: 150
+          cacheSize: 15
+          countries:
+              - IT
+          forceMonthlyUpdate: true
+          logAllowedRequests: false
+          logApiRequests: true
+          logLocalRequests: true
+          silentStartUp: false
+          unknownCountryApiResponse: nil
+
+  # Block IPs that fail excessively
+    fail2ban:
+      plugin:
+        fail2ban:
+          allowlist:
+            ip: ::1,127.0.0.1
+          rules:
+            bantime: 3h
+            enabled: true
+            findtime: 10m
+            maxretry: 4
+            statuscode: 400-409
 
 # >>>

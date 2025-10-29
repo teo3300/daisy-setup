@@ -17,26 +17,71 @@ networks:
 # >>>
 
 services:
-# Reverse proxy (traefik) <<<
-  traefik:
-    image: traefik:latest
+#
+## Reverse proxy (traefik) <<<
+#  traefik:
+#    image: traefik:latest
+#    restart: unless-stopped
+#    container_name: 'traefik'
+#    profiles:
+#      - network-alt
+#    ports:
+#      - '80:80'
+#      - '443:443'
+#    # Web-UI
+#      - '8080:8080'
+#    networks:
+#      - frontend
+#    volumes:
+#      - ~/traefik:/etc/traefik:ro
+#      - ~/docker/traefik/ssl-certs:/ssl-certs
+#    # to listen to docker events
+#      - /var/run/docker.sock:/var/run/docker.sock
+#    # set timezone and localtime as the machine settings
+#      - /etc/timezone:/etc/timezone:ro
+#      - /etc/localtime:/etc/localtime:ro
+#
+## >>>
+#
+# Alternative reverse proxy (nginx) <<< 
+  nginx:
+    image: nginx:latest
     restart: unless-stopped
-    container_name: 'traefik'
+    container_name: nginx
     profiles:
-      - network
-      - core
+      - network-alt
     ports:
-      - '80:80'
-      - '443:443'
-    # Web-UI
-      - '8080:8080'
+      - 80:80
+      - 443:443
     networks:
       - frontend
     volumes:
-    # to listen to docker events
-      - ./traefik:/etc/traefik
-      - ./docker/traefik/ssl-certs:/ssl-certs
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Hypothetically nginx does not need to write any of the default locations
+      - ~/nginx:/etc/nginx:ro
+      # /var/www/certbot is only used for the acme challenge
+      - ~/docker/certbot/www:/var/www/certbot:ro
+      - ~/docker/certbot/conf:/etc/letsencrypt:ro
+      # Use host's timezone
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      SERVER_DOMAIN: '${SERVER_DOMAIN}'
+
+  # Certbot container for certificate renewal
+  certbot:
+    image: certbot/certbot
+    restart: no
+    container_name: certbot
+    profiles:
+      - certbot
+    volumes:
+      - ~/docker/certbot/www:/var/www/certbot
+      - ~/docker/certbot/conf:/etc/letsencrypt
+      # to use correct timezone
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    command: 'certonly --webroot -w /var/www/certbot --keep -d ${SERVER_DOMAIN} --email ${CERTBOT_EMAIL} --agree-tos'
+
 # >>>
 
 # Password manager (bitwarden) <<<
@@ -48,7 +93,7 @@ services:
       - service
       - core
     volumes:
-      - ./docker/vw-data:/data
+      - ~/docker/vw-data:/data
     networks:
       - frontend
 # >>>
@@ -66,8 +111,8 @@ services:
       - '53:53/udp'
       - '67:67/udp'
     volumes:
-      - ./docker/pihole/etc/pihole:/etc/pihole
-      - ./docker/pihole/etc/dnsmasq.d:/etc/dnsmasq.d
+      - ~/docker/pihole/etc/pihole:/etc/pihole
+      - ~/docker/pihole/etc/dnsmasq.d:/etc/dnsmasq.d
     environment:
       TZ: 'Europe/Rome'
       WEBPASSWORD: '${PIHOLE_WEBPASSWORD}'
@@ -88,18 +133,18 @@ services:
       - jellyfin
     user: 1000:1000
     volumes:
-      - ./docker/jellyfin/config:/config
-      - ./docker/jellyfin/cache:/cache
+      - ~/docker/jellyfin/config:/config
+      - ~/docker/jellyfin/cache:/cache
       - type: bind
-        source: ./docker/jellyfin/media
+        source: ~/docker/jellyfin/media
         target: /media
         read_only: true
       - type: bind
-        source: ./docker/jellyfin/media2
+        source: ~/docker/jellyfin/media2
         target: /media2
         read_only: true
       - type: bind
-        source: ./docker/jellyfin/fonts
+        source: ~/docker/jellyfin/fonts
         target: /usr/local/share/fonts/custom
         read_only: true
     runtime: nvidia
@@ -119,51 +164,51 @@ services:
       - jellyfin-backend
       - frontend
   # >>>
-
-  # Indexer (prowlar) <<<
-  prowlarr:
-    image: ghcr.io/hotio/prowlarr
-    container_name: prowlarr
-    ports:
-      - '9696:9696'
-    profiles:
-      - services
-      - jellyfin
-    environment:
-      PUID: 1000
-      PGID: 1000
-      UMASK: 002
-      TZ: Europe/Rome
-    volumes:
-     - ./docker/prowlarr/config:/config
-    networks:
-      - jellyfin-backend
-      - frontend
-  # >>>
-
-  # TV-series manager (sonarr) <<<
-  sonarr:
-    image: ghcr.io/hotio/sonarr
-    container_name: sonarr
-    ports:
-      - "8989:8989"
-    profiles:
-      - services
-      - jellyfin
-    environment:
-      PUID: 1000
-      PGID: 1000
-      UMASK: 002
-      TZ: Europe/Rome
-    volumes:
-      - ./docker/sonarr/config:/config
-      - ./docker/sonarr/data:/data
-      - ./docker/jellyfin/media:/media
-    networks:
-      - jellyfin-backend
-      - frontend
-  # >>>
-
+##
+##  # Indexer (prowlar) <<<
+##  prowlarr:
+##    image: ghcr.io/hotio/prowlarr
+##    container_name: prowlarr
+##    ports:
+##      - '9696:9696'
+##    profiles:
+##      - services
+##      - jellyfin
+##    environment:
+##      PUID: 1000
+##      PGID: 1000
+##      UMASK: 002
+##      TZ: Europe/Rome
+##    volumes:
+##     - ~/docker/prowlarr/config:/config
+##    networks:
+##      - jellyfin-backend
+##      - frontend
+##  # >>>
+##
+##  # TV-series manager (sonarr) <<<
+##  sonarr:
+##    image: ghcr.io/hotio/sonarr
+##    container_name: sonarr
+##    ports:
+##      - "8989:8989"
+##    profiles:
+##      - services
+##      - jellyfin
+##    environment:
+##      PUID: 1000
+##      PGID: 1000
+##      UMASK: 002
+##      TZ: Europe/Rome
+##    volumes:
+##      - ~/docker/sonarr/config:/config
+##      - ~/docker/sonarr/data:/data
+##      - ~/docker/jellyfin/media:/media
+##    networks:
+##      - jellyfin-backend
+##      - frontend
+##  # >>>
+##
 # >>>
 
 # Drive (nextcloud) <<<
@@ -179,7 +224,7 @@ services:
       - intensive
       - nextcloud
     volumes:
-      - ./docker/nextcloud/db:/var/lib/mysql
+      - ~/docker/nextcloud/db:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
       interval: 2s
@@ -206,7 +251,7 @@ services:
     links:
       - nextcloud-db
     volumes:
-      - ./docker/nextcloud/app:/var/www/html
+      - ~/docker/nextcloud/app:/var/www/html
     environment:
       MYSQL_PASSWORD: '${NEXTCLOUD_DB_PASSWORD}'
       MYSQL_DATABASE: nextcloud
@@ -215,25 +260,27 @@ services:
     depends_on:
       nextcloud-db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      #redis:
+      #  condition: service_healthy
     networks:
       - nextcloud-backend
       - frontend
   # >>>
   
-  # File locking (redis) <<<
-  redis:
-    image: redis:latest
-    restart: unless-stopped
-    container_name: redis
-    profiles:
-      - service
-      - core
-      - intensive
-      - nextcloud
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli", "--raw", "incr", "ping"]
+  ## File locking (redis) <<<
+  #redis:
+  #  image: redis:latest
+  #  restart: unless-stopped
+  #  container_name: redis
+  #  profiles:
+  #    - service
+  #    - core
+  #    - intensive
+  #    - nextcloud
+  #  networks:
+  #    - nextcloud-backend
+  #  healthcheck:
+  #    test: ["CMD-SHELL", "redis-cli", "--raw", "incr", "ping"]
 
   # >>>
 
@@ -279,7 +326,7 @@ services:
       MYSQL_PASSWORD: '${VIKUNJA_DB_PASSWORD}'
       MYSQL_DATABASE: vikunja
     volumes:
-      - ./docker/vikunja/db:/var/lib/mysql
+      - ~/docker/vikunja/db:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
       interval: 2s
@@ -298,8 +345,8 @@ services:
 ##     profiles:
 ##       - service
 ##     volumes:
-##       - ./docker/navidrome/data:/data
-##       - ./docker/navidrome/music:/music:ro
+##       - ~/docker/navidrome/data:/data
+##       - ~/docker/navidrome/music:/music:ro
 ##     networks:
 ##       - frontend
 ## # >>>
@@ -319,7 +366,7 @@ services:
       synapse-db:
         condition: service_healthy
     volumes:
-      - ./docker/synapse/data:/data
+      - ~/docker/synapse/data:/data
     networks:
       - frontend
       - synapse-backend
@@ -331,7 +378,7 @@ services:
     profiles:
       - service
     volumes:
-      - ./docker/synapse/db:/var/lib/postgresql/data
+      - ~/docker/synapse/db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
       interval: 2s
@@ -367,8 +414,8 @@ services:
       gitea-db:
         condition: service_healthy
     volumes:
-      - ./docker/gitea/data:/var/lib/gitea
-      - ./docker/gitea/config:/etc/gitea
+      - ~/docker/gitea/data:/var/lib/gitea
+      - ~/docker/gitea/config:/etc/gitea
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     networks:
@@ -387,7 +434,7 @@ services:
       interval: 2s
       start_period: 30s
     volumes:
-      - ./docker/gitea/db:/var/lib/postgresql/data
+      - ~/docker/gitea/db:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: 'gitea'
       POSTGRES_PASSWORD: '${GITEA_DB_PASSWORD}'
@@ -403,7 +450,7 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./docker/portainer:/data
+      - ~/docker/portainer:/data
     profiles:
       - service
     networks:

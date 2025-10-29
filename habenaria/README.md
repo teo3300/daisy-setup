@@ -4,6 +4,28 @@
 
 No specific procedure on the initial setup, just remember to install some packages during setup as it becomes harder to install them later: e.g: `networkmanager`
 
+## Configuration and environment
+
+All commands are configured by setting environment variables in `~/.env`, when a command fails requiring a variable or warns you about a missing variable definition, try checking the content of this file
+
+## Task shceduling
+
+Despite systemd timer existing, I find much easier to work with crontab, all tasks that need to be scheduled will be run using crontab, install a crontab manager (e.g.: `cronie`) if your distro does not provide one, edit the crontab config at `~/crontab` and load it
+
+> Load the crontab config
+
+> ```sh
+> crontab ~/crontab
+> ```
+
+Some managers require you to manually enable the daemon (???: the wiki says so for cronie but it was working out of the box after the config load)
+
+> Manually start the daemon
+
+> ``sh
+> systemctl enable --now <crontabmanager>.service # e.g.: cronie.service
+> ```
+
 ## Networking
 
 ### Static IP
@@ -23,23 +45,19 @@ I'm using networkmanager because I am lazy. According to [this blog](https://mic
 
 ### DNS records update
 
-`dnsupdate.service` and `dnupdate.timer`, located in `~archived`, provide a timer to update dns records according to the script inside the `dns` folder using [dynamicdns.park-your-domain.com](https://dynamicdns.park-your-domain.com)
+~~`dnsupdate.service` and `dnupdate.timer`, located in `~archived`, provide a timer to update dns records according to the script inside the `dns` folder using [dynamicdns.park-your-domain.com](https://dynamicdns.park-your-domain.com)~~
 
-- Copy both the `.service` and `.timer` file in `/etc/systemd/system`
-- Create a file `~/dns/secrets_domain` containing the domais to update
-- Create a file `~/dns/secrets_password`containing your dns pasword for authentication
-- **Remember to make these file not readable from other users** (`600` permissions)
+Dns update scheduling is now done with crontab, install a crontab manager if your distro doesn't have one already and load the `crontab` file (same pocess as for certificate renewal)
 
-> Start the service
+- ~~Copy both the `.service` and `.timer` file in `/etc/systemd/system`~~
+- ~~Create a file `~/dns/secrets_domain` containing the domais to update~~
+- ~~Create a file `~/dns/secrets_password`containing your dns pasword for authentication~~
+- ~~**Remember to make these file not readable from other users** (`600` permissions)~~
 
-> ```sh
-> systemctl enable --now dnsupdate.service
-> ```
-
-> Manually run DNS update, **NOTE**: remember to update \<username\> in the `config`
+> You can also manually run DNS update
 
 > ```sh
-> ./dnsup config
+> ~/dnsup.sh
 > ```
 
 **Remember:** you have to manually create the * and @ recofd the first time, the script can only update them, otherwise it will return an error
@@ -109,7 +127,7 @@ port                | dest                            | protocol | service
 ## Services setup
 
 - Services are all in a single docker-compose, alternative service can be started separately
-- ~~`nginx`~~ `traefik` reverse proxy to manage certificates and connections
+- ~~`nginx reverse proxy`~~ `traefik` to manage certificates and connections
 - `bitwarden` password manager
 - `pihole` local DNS and DNS blocking
 - `jellyfin` media server
@@ -117,12 +135,35 @@ port                | dest                            | protocol | service
 - `navidrome` music server
 etc...
 
-> Start docker, better if from a tmux session
+> Start docker, ~~Better if from a tmux session~~, using `--profile` is possible to start a specific profile (set of containers), multiple profiles can be selected by adding another `--profile` param, specific containers can be started by name
 
 > ```sh
-> tmux
-> docker compose up
+> # tmux
+> docker compose [--profile <profile>] up -d <container> [container ...]
+> # docker compose up # <- this would leave the terminal attached, check the logs instead
 > ```
+
+## Use nginx instead of traefik
+
+Shutdown `traefik` and use the container `nginx` instead, still working on this conf so I'm leaving it as optional
+> For this to work properly, the very first run must be done disabling the https server in nginx confs
+  Otherwise nginx will crash for missing certificates
+
+For the first run, in order to properly obtain the certificates I usually do: 
+- comment 443 config in `nginx.conf`
+- up `nginx`
+- up `certbot` (do not detach, to check that everything goes right)
+- uncomment 443 config in `nginx.conf`
+- reup `nginx`
+> REMEMBER: you have to provide variables `SERVER_DOMAINS` and `CERTBOT_EMAIL` to the compose or manually set them (I use `~/.env`
+
+### Automatic cetificate renew
+
+I am using crontab to schedule this rather than `systemd.Tiemer`s because it's mch easier to handle
+
+> Install a crontab manager if your distro doesn't have a default one (like `cronie`, plus do all the needed stuff like actually starting the cron daemon *wink wink*) and load the crontab file for your user
+
+## Tmux prefix changed
 
 To more easily work with tmux and avoid conflict with client-server prefixes handling, tmux config file sets `C-Space` as the prefix
 
@@ -242,39 +283,15 @@ serve_server_wellknown: true
 public_baseurl: "https://chat.kantai.online"
 ```
 
-## Copyparty config
+# Config sync
 
-Default config used for copyparty, copy content in
+Copy relevant files to a git repo to save confit (requires to define `GITREPO` in the env to locate the git root)
 
-`docker/copyparty/config/initcfg`
+> Copy the current config from the server to the github repository
 
-```conf
-[global]
-  e2dsa, e2ts, dedup, z
-  shr: /shr
-
-[accounts]
-  <username>: <password>
-
-[/]
-  /w
-  accs:
-    rwmda: <username>
-
-[/broadcast]
-  /w/broadcast
-  accs:
-    rwmda: <username>
-    r: *
-
-[/share]
-  /w/share
-  accs:
-    rwmda: <username>
-    g: *
-  flags:
-    fk
-```
+> ```sh
+> sh gitdump.sh
+> ```
 
 ## ADD:
 

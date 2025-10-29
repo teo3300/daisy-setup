@@ -1,9 +1,0 @@
-[Unit]
-Description=Timer for the service dnsupdate
-
-[Timer]
-OnUnitActiveSec=30m
-OnBootSec=5s
-
-[Install]
-WantedBy=timers.target

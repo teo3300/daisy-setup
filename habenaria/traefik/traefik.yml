@@ -17,8 +17,14 @@ entryPoints:
         entryPoint:
           to: websecure
           scheme: https
+          permanent: true
   websecure:
     address: :443
+    http:
+      middlewares:
+        - fail2ban
+      tls:
+        certResolver: letsencrypt
 
 certificatesResolvers:
   letsencrypt:
@@ -39,3 +45,14 @@ providers:
     # Use dynamic configuration for routing
     filename: '/etc/traefik/dynamic.yml'
     watch: true
+
+# Using plugins
+experimental:
+  plugins:
+    geoblock:
+      moduleName: "github.com/PascalMinder/geoblock"
+      version: "v0.3.3"
+
+    fail2ban:
+      moduleName: "github.com/tomMoulard/fail2ban"
+      version: "v0.8.7"

@@ -1,0 +1,17 @@
+SHELL=/usr/bin/bash
+BASH_ENV=/etc/profile
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+# For details see man 4 crontabs
+# Example of job definition:
+# .---------------- minute (0-59)
+# | .-------------- hour (0-23)
+# | | .------------ day of month (1-31)
+# | | | .---------- month (1-12) OR jan,feb,mar,apr ...
+# | | | | .-------- day of week (0-6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+# | | | | |
+# * * * * * user-name command to be executed
+
+# every month, at 4 a.m. check for certificate expire and renew expiring
+0 4 1 * * docker compose up certbot
+# Every 30 minutes update dns record for owned domains
+0,30 * * * * sh dnsup.sh

@@ -12,6 +12,6 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 # * * * * * user-name command to be executed
 
 # every month, at 4 a.m. check for certificate expire and renew expiring
-0 4 1 * * docker compose up certbot
+#0 4 1 * * docker compose up certbot
 # Every 30 minutes update dns record for owned domains
 0,30 * * * * sh dnsup.sh

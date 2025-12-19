@@ -4,6 +4,11 @@
 
 No specific procedure on the initial setup, just remember to install some packages during setup as it becomes harder to install them later: e.g: `networkmanager`
 
+To boot headless from seril port after ArchISO installation specify (assuming grub):
+```cfg
+GRUB_CMDLINE_LINUX_DEFAULT="... console=tty0 console=ttyS0,115200 ..."
+```
+
 ## Configuration and environment
 
 All commands are configured by setting environment variables in `~/.env`, when a command fails requiring a variable or warns you about a missing variable definition, try checking the content of this file
@@ -299,3 +304,11 @@ Copy relevant files to a git repo to save confit (requires to define `GITREPO` i
   - syncthing cli config gui raw-address set <VPN_IP>:<SYNCTHING_PORT>
   - setup password from gui
   - OPTIONAL: just put syncthing behind traefik in docker container (core)
+
+# Power settings
+
+Referencing the [ArchWiki](https://wiki.archlinux.org/title/Power_management#Power_saving) page.
+
+- Disable any wireless device with `rfkill`
+- Disable NMI watchdog if affordable
+- Use powersaving mode

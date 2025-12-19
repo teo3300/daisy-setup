@@ -17,33 +17,34 @@ networks:
 # >>>
 
 services:
-#
-## Reverse proxy (traefik) <<<
-#  traefik:
-#    image: traefik:latest
-#    restart: unless-stopped
-#    container_name: 'traefik'
-#    profiles:
-#      - network-alt
-#    ports:
-#      - '80:80'
-#      - '443:443'
-#    # Web-UI
-#      - '8080:8080'
-#    networks:
-#      - frontend
-#    volumes:
-#      - ~/traefik:/etc/traefik:ro
-#      - ~/docker/traefik/ssl-certs:/ssl-certs
-#    # to listen to docker events
-#      - /var/run/docker.sock:/var/run/docker.sock
-#    # set timezone and localtime as the machine settings
-#      - /etc/timezone:/etc/timezone:ro
-#      - /etc/localtime:/etc/localtime:ro
-#
-## >>>
-#
-# Alternative reverse proxy (nginx) <<< 
+
+# Reverse proxy (traefik) <<<
+  traefik:
+    image: traefik:latest
+    restart: unless-stopped
+    container_name: 'traefik'
+    profiles:
+      - network
+      - core
+    ports:
+      - '80:80'
+      - '443:443'
+    # Web-UI
+      - '8080:8080'
+    networks:
+      - frontend
+    volumes:
+      - ~/traefik:/etc/traefik:ro
+      - ~/docker/traefik/ssl-certs:/ssl-certs
+    # to listen to docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+    # set timezone and localtime as the machine settings
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+# >>>
+
+  # Web server (nginx) <<< 
   nginx:
     image: nginx:latest
     restart: unless-stopped
@@ -61,11 +62,35 @@ services:
       # /var/www/certbot is only used for the acme challenge
       - ~/docker/certbot/www:/var/www/certbot:ro
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
+      # Expose logs for fail2ban
+      - /var/log/nginx:/var/log/nginx
+      # Use host's timezone
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+
+  fail2ban:
+    image: crazymax/fail2ban:latest
+    container_name: fail2ban
+    restart: unless-stopped
+    network_mode: "host"
+    profiles:
+      - network-alt
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ~/docker/fail2ban:/data
+      # Read nginx logs (and only nginx logs)
+      - /var/log:/var/log:ro
       # Use host's timezone
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     environment:
-      SERVER_DOMAIN: '${SERVER_DOMAIN}'
+      F2B_LOG_TARGET: STDOUT
+      F2B_LOG_LEVEL: INFO
+      F2B_DB_PURGE_AGE: 1d
+
+    
 
   # Certbot container for certificate renewal
   certbot:
@@ -73,14 +98,28 @@ services:
     restart: no
     container_name: certbot
     profiles:
-      - certbot
+      - dummy
     volumes:
       - ~/docker/certbot/www:/var/www/certbot
       - ~/docker/certbot/conf:/etc/letsencrypt
       # to use correct timezone
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-    command: 'certonly --webroot -w /var/www/certbot --keep -d ${SERVER_DOMAIN} --email ${CERTBOT_EMAIL} --agree-tos'
+    command: 'renew --webroot -w /var/www/certbot'
+
+  certbot-new:
+    image: certbot/certbot
+    restart: no
+    container_name: certbot-new
+    profiles:
+      - dummy
+    volumes:
+      - ~/docker/certbot/www:/var/www/certbot
+      - ~/docker/certbot/conf:/etc/letsencrypt
+      # to use correct timezone
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    command: 'certonly --webroot -w /var/www/certbot  --email ${CERTBOT_EMAIL} --domain ${SERVER_SUBDOMAIN} --agree-tos'
 
 # >>>
 
@@ -227,7 +266,7 @@ services:
       - ~/docker/nextcloud/db:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
-      interval: 2s
+      interval: 30s
       start_period: 30s
     environment:
       MYSQL_ROOT_PASSWORD: '${NEXTCLOUD_DB_ROOT_PASSWORD}'
@@ -240,16 +279,14 @@ services:
 
   # Frontend (nextcloud) <<<
   nextcloud-frontend:
-    image: nextcloud
+    image: nextcloud:latest
     restart: unless-stopped
-    container_name: 'nextcloud-frontend'
+    container_name: nextcloud-frontend
     profiles:
       - service
       - core
       - intensive
       - nextcloud
-    links:
-      - nextcloud-db
     volumes:
       - ~/docker/nextcloud/app:/var/www/html
     environment:
@@ -257,30 +294,44 @@ services:
       MYSQL_DATABASE: nextcloud
       MYSQL_USER: nextcloud
       MYSQL_HOST: nextcloud-db
+      REDIS_HOST: nextcloud-redis
+      # Keep default port
+      REDIS_HOST_PASSWORD: '${NEXTCLOUD_REDIS_PASSWORD}'
+      # Additional conf (these are the same ase config.php, can skip it ??)
+      NEXTCLOUD_TRUSTED_DOMAINS: drive.kantai.online
+      # Refresh htaccess container init
+      NEXTCLOUD_INIT_HTACCESS: true
+      # Reverse proxy config
+      TRUSTED_PROXIES: '${LOCAL_IP}'
+      OVERWRITEPROTOCOL: https
     depends_on:
       nextcloud-db:
         condition: service_healthy
-      #redis:
-      #  condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
     networks:
       - nextcloud-backend
       - frontend
   # >>>
   
-  ## File locking (redis) <<<
-  #redis:
-  #  image: redis:latest
-  #  restart: unless-stopped
-  #  container_name: redis
-  #  profiles:
-  #    - service
-  #    - core
-  #    - intensive
-  #    - nextcloud
-  #  networks:
-  #    - nextcloud-backend
-  #  healthcheck:
-  #    test: ["CMD-SHELL", "redis-cli", "--raw", "incr", "ping"]
+  # File locking (redis) <<<
+  nextcloud-redis:
+    image: redis:alpine
+    restart: unless-stopped
+    container_name: nextcloud-redis
+    profiles:
+      - service
+      - core
+      - intensive
+      - nextcloud
+    networks:
+      # Expose via host for now
+      - nextcloud-backend
+    command: '--requirepass ${NEXTCLOUD_REDIS_PASSWORD}'
+    healthcheck:
+      interval: 30s
+      start_period: 30s
+      test: ["CMD-SHELL", "redis-cli", "--raw", "incr", "ping"]
 
   # >>>
 
@@ -329,7 +380,7 @@ services:
       - ~/docker/vikunja/db:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
-      interval: 2s
+      interval: 30s
       start_period: 30s
     networks:
       - vikunja-backend
@@ -381,7 +432,7 @@ services:
       - ~/docker/synapse/db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
-      interval: 2s
+      interval: 30s
       start_period: 30s
     environment:
       POSTGRES_USER: 'synapse_user'

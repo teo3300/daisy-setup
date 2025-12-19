@@ -3,6 +3,9 @@ global:
   checkNewVersion: true
   sendAnonymousUsage: false
 
+log:
+  level: DEBUG
+
 # Will probably disable this later, firewalled
 api:
   dashboard: true
@@ -21,8 +24,8 @@ entryPoints:
   websecure:
     address: :443
     http:
-      middlewares:
-        - fail2ban
+      #middlewares:
+      #  - fail2ban
       tls:
         certResolver: letsencrypt
 

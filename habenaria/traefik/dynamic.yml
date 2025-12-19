@@ -28,6 +28,8 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+      middlewares:
+        - fail2ban
 
     pihole:
       service: pihole
@@ -46,8 +48,10 @@ http:
         certresolver: letsencrypt
       middlewares: 
         - geoblock
-        - nextcloud_redirectregex
-        - nextcloud_sts
+      #  - fail2ban
+        - nextcloud-sts
+        - nextcloud-replace
+        - nextcloud-gallery-unfart
 
     serben-rust:
       service: serben-rust
@@ -56,6 +60,20 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+      middlewares:
+        # - fail2ban
+        - geoblock
+
+    nginx:
+      service: nginx
+      rule: Host(`web.kantai.online`)
+      entrypoints:
+        - websecure
+      tls:
+        certresolver: letsencrypt
+      middlewares:
+        - fail2ban
+        - geoblock
 
     gitea:
       service: gitea
@@ -64,6 +82,8 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+      middlewares:
+        - fail2ban
 
     vikunja:
       service: vikunja
@@ -74,6 +94,7 @@ http:
         certresolver: letsencrypt
       middlewares:
         - geoblock
+        - fail2ban
 
     jellyfin:
       service: jellyfin
@@ -84,6 +105,7 @@ http:
         certresolver: letsencrypt
       middlewares:
         - geoblock
+        - fail2ban
 
     portainer:
       service: portainer
@@ -118,6 +140,9 @@ http:
         - websecure
       tls:
         certresolver: letsencrypt
+      middlewares:
+        - geoblock
+        - fail2ban
 
 # >>>
 
@@ -143,6 +168,11 @@ http:
       loadbalancer:
         servers:
           - url: http://serben-rust:8123
+
+    nginx:
+      loadbalancer:
+        servers:
+          - url: http://nginx:80
 
     gitea:
       loadbalancer:
@@ -184,15 +214,20 @@ http:
   middlewares:
 # Middlewares <<<
 
-  # Enable redirect for CalDAV & cardDAV
-    nextcloud_redirectregex:
-      redirectregex:
-        permanent: true
-        regex: 'https://(.*)/.well-known/(?:card|cal)dav'
-        replacement: 'https://${}/remote.php/dav'
+  # Replace for CalDAV & cardDAV
+    nextcloud-replace:
+      replacePathRegex:
+        regex: '^/\.well-known/ca(l|rd)dav/'
+        replacement: '/remote.php/dav/'
+
+  # For some reason the gallery doubles the /remote.php/dav path, just remove it
+    nextcloud-gallery-unfart:
+      redirectRegex:
+        regex: '^https://drive\.kantai\.online/remote\.php/dav/remote\.php/dav/(.*)'
+        replacement: 'https://drive.kantai.online/remote.php/dav/${1}'
 
   # Requested for security reasons
-    nextcloud_sts:
+    nextcloud-sts:
       headers:
         stsSeconds: 15552000
 
@@ -219,12 +254,15 @@ http:
       plugin:
         fail2ban:
           allowlist:
-            ip: ::1,127.0.0.1
+            ip:
+              - "::1"
+              - "127.0.0.1"
+              - "192.168.1.0/24"
           rules:
-            bantime: 3h
+            bantime: 10m
             enabled: true
             findtime: 10m
-            maxretry: 4
+            maxretry: 10
             statuscode: 400-409
 
 # >>>

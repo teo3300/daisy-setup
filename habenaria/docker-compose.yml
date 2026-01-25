@@ -70,6 +70,7 @@ services:
       # Use host's timezone
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+      - ~/git/content:/www/serben:ro
 
 ##  fail2ban:
 ##    image: crazymax/fail2ban:latest
@@ -420,7 +421,7 @@ services:
     volumes:
       - ~/docker/synapse/db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       interval: 30s
       start_period: 30s
     environment:
@@ -470,9 +471,9 @@ services:
       - service
       - core
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
-      interval: 2s
-      start_period: 30s
+      test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_DB"]
+      interval: 10s
+      start_period: 10s
     volumes:
       - ~/docker/gitea/db:/var/lib/postgresql/data
     environment:

@@ -44,7 +44,10 @@ services:
 
 # >>>
 
-  # Web server (nginx) <<< 
+# Web server and reverse proxy (nginx) <<< 
+# NOTE: on the first run, disable nginx 443 configuration as there is
+#       no certificate available yet, failing to do so will result in the
+#       container stopping immediately
   nginx:
     image: nginx:latest
     restart: unless-stopped
@@ -63,34 +66,32 @@ services:
       - ~/docker/certbot/www:/var/www/certbot:ro
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
       # Expose logs for fail2ban
-      - /var/log/nginx:/var/log/nginx
+      # - /var/log/nginx:/var/log/nginx
       # Use host's timezone
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
 
-  fail2ban:
-    image: crazymax/fail2ban:latest
-    container_name: fail2ban
-    restart: unless-stopped
-    network_mode: "host"
-    profiles:
-      - network-alt
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    volumes:
-      - ~/docker/fail2ban:/data
-      # Read nginx logs (and only nginx logs)
-      - /var/log:/var/log:ro
-      # Use host's timezone
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    environment:
-      F2B_LOG_TARGET: STDOUT
-      F2B_LOG_LEVEL: INFO
-      F2B_DB_PURGE_AGE: 1d
-
-    
+##  fail2ban:
+##    image: crazymax/fail2ban:latest
+##    container_name: fail2ban
+##    restart: unless-stopped
+##    network_mode: "host"
+##    profiles:
+##      - network-alt
+##    cap_add:
+##      - NET_ADMIN
+##      - NET_RAW
+##    volumes:
+##      - ~/docker/fail2ban:/data
+##      # Read nginx logs (and only nginx logs)
+##      - /var/log:/var/log:ro
+##      # Use host's timezone
+##      - /etc/timezone:/etc/timezone:ro
+##      - /etc/localtime:/etc/localtime:ro
+##    environment:
+##      F2B_LOG_TARGET: STDOUT
+##      F2B_LOG_LEVEL: INFO
+##      F2B_DB_PURGE_AGE: 1d
 
   # Certbot container for certificate renewal
   certbot:
@@ -107,6 +108,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
     command: 'renew --webroot -w /var/www/certbot'
 
+  # Certbot container for creating a new, non-existing certificate, must be run specifying the $SERVER_SUBDOMAIN
   certbot-new:
     image: certbot/certbot
     restart: no
@@ -386,22 +388,7 @@ services:
       - vikunja-backend
   # >>>
 # >>>
-## 
-## # Music streaming (navidrome) <<<
-##   navidrome:
-##     image: deluan/navidrome
-##     restart: unless-stopped
-##     container_name: navidrome
-##     user: 1000:1000
-##     profiles:
-##       - service
-##     volumes:
-##       - ~/docker/navidrome/data:/data
-##       - ~/docker/navidrome/music:/music:ro
-##     networks:
-##       - frontend
-## # >>>
-## 
+
 # Matrix (synapse) <<<
   synapse-frontend:
     container_name: synapse-frontend

@@ -301,8 +301,10 @@ Copy relevant files to a git repo to save confit (requires to define `GITREPO` i
 ## ADD:
 
 - syncthing setup remote gui for server
-  - syncthing cli config gui raw-address set <VPN_IP>:<SYNCTHING_PORT>
+  - as daemon:
+  - remote gui:  syncthing cli config gui raw-address set <VPN_IP>:<SYNCTHING_PORT>
   - setup password from gui
+  - config different base directory: `man syncthing-config` and change the default directory in one of config.xml according to [documentation](https://docs.syncthing.net/users/config.html#defaults-element) (change configuration > defaults > folder.path to something like ~/syncthing)
   - OPTIONAL: just put syncthing behind traefik in docker container (core)
 
 # Power settings

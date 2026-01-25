@@ -62,7 +62,7 @@ http:
         certresolver: letsencrypt
       middlewares:
         # - fail2ban
-        - geoblock
+        # - geoblock
 
     nginx:
       service: nginx
@@ -105,7 +105,7 @@ http:
         certresolver: letsencrypt
       middlewares:
         - geoblock
-        - fail2ban
+      #  - fail2ban
 
     portainer:
       service: portainer
@@ -247,6 +247,9 @@ http:
           logApiRequests: true
           logLocalRequests: true
           silentStartUp: false
+          allowedIPAddresses:
+            - 192.168.1.0/24
+            - 10.100.0.0/24
           unknownCountryApiResponse: nil
 
   # Block IPs that fail excessively
@@ -258,6 +261,7 @@ http:
               - "::1"
               - "127.0.0.1"
               - "192.168.1.0/24"
+              - "10.100.0.0/24"
           rules:
             bantime: 10m
             enabled: true

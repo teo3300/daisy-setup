@@ -271,8 +271,8 @@ services:
       - ~/docker/nextcloud/db:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
-      interval: 30s
-      start_period: 30s
+      interval: 10s
+      start_period: 10s
     environment:
       MYSQL_ROOT_PASSWORD: '${NEXTCLOUD_DB_ROOT_PASSWORD}'
       MYSQL_PASSWORD: '${NEXTCLOUD_DB_PASSWORD}'
@@ -304,6 +304,7 @@ services:
       REDIS_HOST_PASSWORD: '${NEXTCLOUD_REDIS_PASSWORD}'
       # Additional conf (these are the same ase config.php, can skip it ??)
       NEXTCLOUD_TRUSTED_DOMAINS: drive.kantai.online
+      NEXTCLOUD_OVERWRITE_HOST: drive.kantai.online
       # Refresh htaccess container init
       NEXTCLOUD_INIT_HTACCESS: true
       # Reverse proxy config

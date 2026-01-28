@@ -17,6 +17,6 @@ if [ -z $DNSUP_PASSWORD ]; then
   exit 1
 fi
 
-for HOST in $HOSTS; do
+for HOST in ${(s: :)HOSTS}; do
   curl "$BASE_LINK/update?host=$HOST&domain=$SERVER_DOMAIN&password=$DNSUP_PASSWORD"
 done

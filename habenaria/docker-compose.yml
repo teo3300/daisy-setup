@@ -24,8 +24,9 @@ services:
     restart: unless-stopped
     container_name: 'traefik'
     profiles:
-      - network
-      - core
+      - network-alt
+    #  - network
+    #  - core
     ports:
       - '80:80'
       - '443:443'
@@ -45,23 +46,24 @@ services:
 # >>>
 
 # Web server and reverse proxy (nginx) <<< 
-# NOTE: on the first run, disable nginx 443 configuration as there is
-#       no certificate available yet, failing to do so will result in the
-#       container stopping immediately
   nginx:
     image: nginx:latest
     restart: unless-stopped
     container_name: nginx
     profiles:
-      - network-alt
+      - network
+      - core
     ports:
       - 80:80
       - 443:443
     networks:
       - frontend
+    environment:
+      SERVER_DOMAIN: '${SERVER_DOMAIN}'
     volumes:
-      # Hypothetically nginx does not need to write any of the default locations
-      - ~/nginx:/etc/nginx:ro
+      # Write only the config file (temporary)
+      - ~/nginx/nginx.conf:/etc/nginx/template-nginx.conf:ro
+      - ~/nginx/makeconf.sh:/docker-entrypoint.d/99_makeconf.sh
       # /var/www/certbot is only used for the acme challenge
       - ~/docker/certbot/www:/var/www/certbot:ro
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
@@ -69,8 +71,20 @@ services:
       # - /var/log/nginx:/var/log/nginx
       # Use host's timezone
       - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-      - ~/git/content:/www/serben:ro
+
+  # Exclusively used to create new certificats, using limited config without any 443
+  nginx-certbot:
+    image: nginx:latest
+    restart: unless-stopped
+    container_name: nginx
+    profiles:
+      - dummy
+    ports:
+      - 80:80
+    volumes:
+      - ~/nginx/certbot-nginx.conf:/etc/nginx/nginx.conf:ro
+      - ~/docker/certbot/www:/var/www/certbot:ro
+      - ~/docker/certbot/conf:/etc/letsencrypt:ro
 
 ##  fail2ban:
 ##    image: crazymax/fail2ban:latest
@@ -92,8 +106,6 @@ services:
 ##    environment:
 ##      F2B_LOG_TARGET: STDOUT
 ##      F2B_LOG_LEVEL: INFO
-##      F2B_DB_PURGE_AGE: 1d
-
   # Certbot container for certificate renewal
   certbot:
     image: certbot/certbot
@@ -107,7 +119,7 @@ services:
       # to use correct timezone
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-    command: 'renew --webroot -w /var/www/certbot'
+    command: 'renew --webroot -w /var/www/certbot' 
 
   # Certbot container for creating a new, non-existing certificate, must be run specifying the $SERVER_SUBDOMAIN
   certbot-new:
@@ -131,6 +143,8 @@ services:
     image: vaultwarden/server:latest
     restart: unless-stopped
     container_name: 'bitwarden'
+    environment:
+      DOMAIN: 'https://bitwarden.${SERVER_DOMAIN}'
     profiles:
       - service
       - core
@@ -153,7 +167,7 @@ services:
       - '53:53/udp'
       - '67:67/udp'
       ## Do not proxy-manage dashboard
-      # - '8081:80/tcp'
+      - '8081:80/tcp'
     volumes:
       - ~/docker/pihole/etc/pihole:/etc/pihole
       - ~/docker/pihole/etc/dnsmasq.d:/etc/dnsmasq.d
@@ -200,7 +214,7 @@ services:
               count: all
               capabilities: [gpu]
     environment:
-      JELLYFIN_PublishedServerUrl: movie.kantai.online
+      JELLYFIN_PublishedServerUrl: 'movie.${SERVER_DOMAIN}'
       TZ: Europe/Rome
     extra_hosts:
       - 'host.docker.internal:host-gateway'
@@ -295,21 +309,24 @@ services:
     volumes:
       - ~/docker/nextcloud/app:/var/www/html
     environment:
+      # DB config
       MYSQL_PASSWORD: '${NEXTCLOUD_DB_PASSWORD}'
       MYSQL_DATABASE: nextcloud
       MYSQL_USER: nextcloud
       MYSQL_HOST: nextcloud-db
+      # Redis config
       REDIS_HOST: nextcloud-redis
-      # Keep default port
       REDIS_HOST_PASSWORD: '${NEXTCLOUD_REDIS_PASSWORD}'
-      # Additional conf (these are the same ase config.php, can skip it ??)
-      NEXTCLOUD_TRUSTED_DOMAINS: drive.kantai.online
-      NEXTCLOUD_OVERWRITE_HOST: drive.kantai.online
+      # Additional conf (these are the same ase config.php)
+      NEXTCLOUD_TRUSTED_DOMAINS: 'drive.${SERVER_DOMAIN}'
       # Refresh htaccess container init
       NEXTCLOUD_INIT_HTACCESS: true
-      # Reverse proxy config
-      TRUSTED_PROXIES: '${LOCAL_IP}'
+      # Apache config
+      DISABLE_REWRITE_IP: 1
+      TRUSTED_PROXIES: '${NEXTCLOUD_TRUSTED_PROXIES}'
       OVERWRITEPROTOCOL: https
+      OVERWRITECLIURL: 'https://drive.${SERVER_DOMAIN}'
+
     depends_on:
       nextcloud-db:
         condition: service_healthy
@@ -352,7 +369,7 @@ services:
     profiles:
      - service
     environment:
-      VIKUNJA_SERVICE_PUBLICURL: https://todo.kantai.online
+      VIKUNJA_SERVICE_PUBLICURL: 'https://todo.${SERVER_DOMAIN}'
       VIKUNJA_DATABASE_HOST: vikunja-db
       VIKUNJA_DATABASE_PASSWORD: '${VIKUNJA_DB_PASSWORD}'
       VIKUNJA_DATABASE_TYPE: mysql
@@ -440,7 +457,7 @@ services:
     image: docker.gitea.com/gitea:1.24.2-rootless
     profiles:
       - service
-      - core
+    #  - core
     restart: always
     environment:
       GITEA__database__DB_TYPE: 'postgres'
@@ -470,7 +487,7 @@ services:
     restart: always
     profiles:
       - service
-      - core
+    #  - core
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_DB"]
       interval: 10s

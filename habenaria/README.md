@@ -63,6 +63,8 @@ Dns update scheduling is now done with crontab, install a crontab manager if you
 
 > ```sh
 > ~/dnsup.sh
+> # Or, if you are using Dynu:
+> ~/dynup.sh
 > ```
 
 **Remember:** you have to manually create the * and @ recofd the first time, the script can only update them, otherwise it will return an error
@@ -151,7 +153,7 @@ etc...
 ## Use nginx instead of traefik
 
 Shutdown `traefik` and use the container `nginx` instead, still working on this conf so I'm leaving it as optional
-> For this to work properly, the very first run must be done disabling the https server in nginx confs
+> ~~For this to work properly, the very first run must be done disabling the https server in nginx confs
   Otherwise nginx will crash for missing certificates
 
 For the first run, in order to properly obtain the certificates I usually do: 
@@ -159,8 +161,19 @@ For the first run, in order to properly obtain the certificates I usually do:
 - up `nginx`
 - up `certbot` (do not detach, to check that everything goes right)
 - uncomment 443 config in `nginx.conf`
-- reup `nginx`
-> REMEMBER: you have to provide variables `SERVER_DOMAINS` and `CERTBOT_EMAIL` to the compose or manually set them (I use `~/.env`
+- reup `nginx`~~
+
+Now to make all new certificates in bulk, stop any service running behind port:80i (this will already stop `traefik` container if running and start it again), and run `makecerts`, be sure to export the variables `$SERVER_DOMAIN` and `$SERVER_SUBDOMAINS`, to emit certificates for all subdomains
+```sh
+zsh ~/makecerts
+```
+To add new domains simply run the script again
+
+> REMEMBER: you have to provide variables `SERVER_DOMAINS` and `CERTBOT_EMAIL` to the compose or manually set them (I use `~/.env`)
+
+### File template
+
+Nginx config is a template file from which the actual config is generated, make sure to set executable permission to `~/nginx/makeconf.sh`
 
 ### Automatic cetificate renew
 

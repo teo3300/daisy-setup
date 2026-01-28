@@ -29,7 +29,7 @@ cp docker/addkey $GITREPO/docker/
 cp traefik/* $GITREPO/traefik/
 
 # Nginx config
-cp nginx/nginx.conf $GITREPO/nginx/
+cp nginx/* $GITREPO/nginx/
 
 # Scripts to create a wireguard interface
 cp wireguard/setup_{client,server} $GITREPO/wireguard/

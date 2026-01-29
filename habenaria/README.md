@@ -281,8 +281,6 @@ server_name: "<synapse_domain>"
 trusted_key_servers:
   - server_name: "<synapse_domain>"
 
-To manage server in an EZ way: [Admin interface](https://awesome-technologies.github.io/synapse-admin/#/users), [repo](https://github.com/Awesome-Technologies/synapse-admin)
-
 # To use external DB rather than sqlite
 database:
   name: <name>
@@ -301,6 +299,8 @@ registration_requires_token: true
 serve_server_wellknown: true
 public_baseurl: "https://<synapse_domain>"
 ```
+
+To manage server in an EZ way: [Admin interface](https://awesome-technologies.github.io/synapse-admin/#/users), [repo](https://github.com/Awesome-Technologies/synapse-admin)
 
 # Config sync
 

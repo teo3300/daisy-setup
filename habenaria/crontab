@@ -14,4 +14,4 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 # every month, at 4 a.m. check for certificate expire and renew expiring
 0 4 1 * * docker compose up certbot
 # Every 30 minutes update dns record for owned domains
-0,30 * * * * zsh dynup.sh
+0,30 * * * * zsh dnsup/dynu.sh

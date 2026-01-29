@@ -2,9 +2,11 @@
 
 ## Initial setup
 
+All scripts are run with `zsh` in mind, some only need minor changes to run with bash (remove `${(s: :)VAR}` for list split)
+
 No specific procedure on the initial setup, just remember to install some packages during setup as it becomes harder to install them later: e.g: `networkmanager`
 
-To boot headless from seril port after ArchISO installation specify (assuming grub):
+To boot headless from serial port after ArchISO installation specify (assuming grub):
 ```cfg
 GRUB_CMDLINE_LINUX_DEFAULT="... console=tty0 console=ttyS0,115200 ..."
 ```
@@ -27,7 +29,7 @@ Some managers require you to manually enable the daemon (???: the wiki says so f
 
 > Manually start the daemon
 
-> ``sh
+> ```sh
 > systemctl enable --now <crontabmanager>.service # e.g.: cronie.service
 > ```
 
@@ -50,31 +52,32 @@ I'm using networkmanager because I am lazy. According to [this blog](https://mic
 
 ### DNS records update
 
-~~`dnsupdate.service` and `dnupdate.timer`, located in `~archived`, provide a timer to update dns records according to the script inside the `dns` folder using [dynamicdns.park-your-domain.com](https://dynamicdns.park-your-domain.com)~~
-
-Dns update scheduling is now done with crontab, install a crontab manager if your distro doesn't have one already and load the `crontab` file (same pocess as for certificate renewal)
-
-- ~~Copy both the `.service` and `.timer` file in `/etc/systemd/system`~~
-- ~~Create a file `~/dns/secrets_domain` containing the domais to update~~
-- ~~Create a file `~/dns/secrets_password`containing your dns pasword for authentication~~
-- ~~**Remember to make these file not readable from other users** (`600` permissions)~~
+Dns update scheduling is done with crontab, install a crontab manager if your distro doesn't have one already, edit the `crontab` file and reload it (as for certificates renewal) 
 
 > You can also manually run DNS update
 
 > ```sh
-> ~/dnsup.sh
+> # ~/dnsup/<DNS>.sh
+> 
+> # Namecheap
+> zsh ~/dnsup/namecheap.sh
 > # Or, if you are using Dynu:
-> ~/dynup.sh
+> zsh ~/dnsup/dynu.sh
 > ```
 
-**Remember:** you have to manually create the * and @ recofd the first time, the script can only update them, otherwise it will return an error
+**Remember:** For some services, like namecheap, you have to manually create the * and @ records, the script can only update them, otherwise it will return an error
 
 ### Wireguard interface creation
 
 > Create a `config` file in the local wireguard directory, setting the variables. Add executable privileges to the owner (better if setting `700` permissions)
+
+<!-- TODO: reduce the critical section within sudo, load venv and then sudo to copy files -->
+
 ```sh
 #!/bin/sh
-export SERVER_DOMAIN=<myDomain>
+# This is set independently from environment as these scripts will be run under
+#   superuser (they need to write in "/etc")
+export SERVER_DOMAIN=<myDomain> 
 export SERVER_PORT=<myPort>
 ```
 
@@ -109,7 +112,7 @@ Open specific ports:
 port                | dest                            | protocol | service
 ------------------- | ------------------------------- | -------- | -----------------
 `:80`               | `<server_addr>:80`              | TCP      | certbot
-`:443`              | `<server_addr>:443`             | TCP      | traefik websecure
+`:443`              | `<server_addr>:443`             | TCP      | reverse-proxy websecure
 `:<global_wg_port>` | `<server_addr>:<local_wg_port>` | UDP      | wireguard
 
 ## Docker Setup
@@ -122,7 +125,7 @@ port                | dest                            | protocol | service
 
 > ```sh
 > touch .env
-> chmod 700 .env
+> chmod 600 .env
 > ```
 
 > Add a specific variable name with a random key
@@ -133,8 +136,8 @@ port                | dest                            | protocol | service
 
 ## Services setup
 
-- Services are all in a single docker-compose, alternative service can be started separately
-- ~~`nginx reverse proxy`~~ `traefik` to manage certificates and connections
+- Services are all in a single docker-compose, alternative services can be started separately
+- `nginx` as a reverse proxy to manage certificates and connections
 - `bitwarden` password manager
 - `pihole` local DNS and DNS blocking
 - `jellyfin` media server
@@ -142,46 +145,43 @@ port                | dest                            | protocol | service
 - `navidrome` music server
 etc...
 
-> Start docker, ~~Better if from a tmux session~~, using `--profile` is possible to start a specific profile (set of containers), multiple profiles can be selected by adding another `--profile` param, specific containers can be started by name
+> Start docker, using `--profile` is possible to start a specific profile (set of containers), multiple profiles can be selected by adding another `--profile` param, specific containers can be started by name
 
 > ```sh
 > # tmux
-> docker compose [--profile <profile>] up -d <container> [container ...]
+> docker compose [--profile <profile> ...] up -d <container> [container ...]
 > # docker compose up # <- this would leave the terminal attached, check the logs instead
 > ```
 
-## Use nginx instead of traefik
+## traefik
 
-Shutdown `traefik` and use the container `nginx` instead, still working on this conf so I'm leaving it as optional
-> ~~For this to work properly, the very first run must be done disabling the https server in nginx confs
-  Otherwise nginx will crash for missing certificates
+The default reverse proxy is now nginx, traefik config files kept to be able to switch in the future
 
-For the first run, in order to properly obtain the certificates I usually do: 
-- comment 443 config in `nginx.conf`
-- up `nginx`
-- up `certbot` (do not detach, to check that everything goes right)
-- uncomment 443 config in `nginx.conf`
-- reup `nginx`~~
-
-Now to make all new certificates in bulk, stop any service running behind port:80i (this will already stop `traefik` container if running and start it again), and run `makecerts`, be sure to export the variables `$SERVER_DOMAIN` and `$SERVER_SUBDOMAINS`, to emit certificates for all subdomains
-```sh
-zsh ~/makecerts
-```
-To add new domains simply run the script again
+## nginx
+### New certificates
 
 > REMEMBER: you have to provide variables `SERVER_DOMAINS` and `CERTBOT_EMAIL` to the compose or manually set them (I use `~/.env`)
 
-### File template
+To make all new certificates in bulk, stop any service running behind port:80 and run `makecerts` (this will already stop `nginx` container if running and start it again), be sure to export the variables `$SERVER_DOMAIN` and `$SERVER_SUBDOMAINS`, to emit certificates for all subdomains
+```sh
+zsh ~/makecerts
+```
 
-Nginx config is a template file from which the actual config is generated, make sure to set executable permission to `~/nginx/makeconf.sh`
+Certificate creation is done by running a limited-config nginx container `nginx-certbot` which only serves certbot challenges, and the `certbot-new` container, which requires new certificates.
 
-### Automatic cetificate renew
+To add new domains simply run the script again
 
-I am using crontab to schedule this rather than `systemd.Tiemer`s because it's mch easier to handle
+### Certificates renewal
 
-> Install a crontab manager if your distro doesn't have a default one (like `cronie`, plus do all the needed stuff like actually starting the cron daemon *wink wink*) and load the crontab file for your user
+Certificate renewal is attempted once a month via crontab by using `certbot` container when the the default `nginx` container is running
 
-## Tmux prefix changed
+### Config file template
+
+Nginx config is a template file from which the actual config is generated, make sure to have executable permissions for `~/nginx/makeconf.sh` which substitute environment variables.
+
+To use an environment variable pass it to the container and add it to the `envsubst`'s list of substution in makeconf.sh
+
+## Tmux prefix change
 
 To more easily work with tmux and avoid conflict with client-server prefixes handling, tmux config file sets `C-Space` as the prefix
 
@@ -190,11 +190,13 @@ To more easily work with tmux and avoid conflict with client-server prefixes han
 To make it easier to manage different groups of container, I used differnt profiles, may add or remove some later if needed
 
 - **network**: Networking purpose, such as traefk for referse proxy and pihole for DNS
-- **core**: Essential functionalities such (bitwarden, nestloud, gitea, etc.), (includes networking services)
-- **servie**: All services aside from networking plus other that I don't always need running
+- **core**: Essential functionalities such (bitwarden, nextloud, pihole, etc.), (includes networking services)
+- **service**: All services aside from networking plus other that I don't always need running
 - **intensive**: Services which are resource-intensive (jellyfin which requires GPU acceleration, nextcloud, etc.)
+- **network-alt**: Alternative networking, using nginx
+- **dummy**: Temporary container which are started from scripts for automated processes (like certificates renewal)
 
-> Start all containers with `<profile>`
+> Start all containers in `<profile>`
 
 > ```sh
 > docker compose --profile <profile> up -d
@@ -202,7 +204,7 @@ To make it easier to manage different groups of container, I used differnt profi
 
 All docker compose commands can specify a profile, so `down` also allows to turn off specific groups of container
 
-### Additional configuration
+### Additional configuration (cheatsheet)
 
 > attach a shell to a running container to edit it
 
@@ -212,11 +214,8 @@ All docker compose commands can specify a profile, so `down` also allows to turn
 
 - `pihole` password can be changed once the container already started, follow the instructions on the admin page
 - Autoredirection from `/` to `/admin` for pihole is set by default after settig `webserver.domain` in `pihole.toml` in the pihole config
-- Disable `traefik` dashboard once you are sure everything is working fine
 
-## Traefik config
-
-~~Copy the traefik config folder in `~/docker` when you update it~~
+## Traefik config (if using traefik networking)
 
 Traefik config resides outside docker directory, so every modification to original `traefik.yml` or `dynamic.yml` influences traefik instantly
 
@@ -237,18 +236,20 @@ Traefik config resides outside docker directory, so every modification to origin
 
 ## Proxy setup for nextcloud
 
-Nextcloud notices being behind a reverse proxy, to prevent annoying warnings configure nextcloud to recognise this proxy as trusted
+Nextcloud detects being behind a reverse proxy, to prevent annoying warnings configure nextcloud to recognise this proxy as trusted.
 
-Edit `nextcloud/nextcloud/config/config.php` with the following changes
+All these values should be correctly initialized from within the comopse th first time you start nextcloud, only change them if you happen to change domain after the initial nextcloud configuration
+
+> Edit `nextcloud/nextcloud/config/config.php`
 
 ```php
 // ...
 
 // set https instead of http for URL generation
-'overwrite.cli.url' => 'https://<domain>',
+'overwrite.cli.url' => 'https://<nextcloud_domain>',
 
-// set this mashine as a trusted proxy
-'trusted_proxies' => ['<Machine IP>'],
+// set this mashine as a trusted proxy (can use net masks)
+'trusted_proxies' => ['<Machine IP>[/<mask>]'],
 
 // overwrite protocol
 'overwriteprotocol' => 'https',
@@ -276,9 +277,9 @@ Then restart the containers
 
 ```yaml
 # Should be already set
-server_name: "chat.kantai.online"
+server_name: "<synapse_domain>"
 trusted_key_servers:
-  - server_name: "chat.kantai.online"
+  - server_name: "<synapse_domain>"
 
 To manage server in an EZ way: [Admin interface](https://awesome-technologies.github.io/synapse-admin/#/users), [repo](https://github.com/Awesome-Technologies/synapse-admin)
 
@@ -287,7 +288,7 @@ database:
   name: <name>
   args:
     user: synapse_user
-    password: <generate strong pw>
+    password: <generated_strong_pw>
     dbname: synapse
     host: synapse-db
     cp_min: 5
@@ -298,7 +299,7 @@ database:
 enable_registration: true
 registration_requires_token: true
 serve_server_wellknown: true
-public_baseurl: "https://chat.kantai.online"
+public_baseurl: "https://<synapse_domain>"
 ```
 
 # Config sync
@@ -311,7 +312,10 @@ Copy relevant files to a git repo to save confit (requires to define `GITREPO` i
 > sh gitdump.sh
 > ```
 
-## ADD:
+---
+---
+
+## Additional config I still have to document:
 
 - syncthing setup remote gui for server
   - as daemon:

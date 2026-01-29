@@ -20,7 +20,10 @@ cp docker-compose.yml $GITREPO/
 cp crontab $GITREPO/
 
 # Script used to update dns recordsd
-cp dnsup.sh $GITREPO/
+cp dnsup/* $GITREPO/dnsup/
+
+# Script to renew certificates
+cp makecerts.sh $GITREPO/
 
 # Small script to generate a random key to use in docker variables
 cp docker/addkey $GITREPO/docker/

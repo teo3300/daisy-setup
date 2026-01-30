@@ -72,20 +72,6 @@ services:
       # Use host's timezone
       - /etc/timezone:/etc/timezone:ro
 
-  # Exclusively used to create new certificats, using limited config without any 443
-  nginx-certbot:
-    image: nginx:latest
-    restart: unless-stopped
-    container_name: nginx
-    profiles:
-      - dummy
-    ports:
-      - 80:80
-    volumes:
-      - ~/nginx/certbot-nginx.conf:/etc/nginx/nginx.conf:ro
-      - ~/docker/certbot/www:/var/www/certbot:ro
-      - ~/docker/certbot/conf:/etc/letsencrypt:ro
-
 ##  fail2ban:
 ##    image: crazymax/fail2ban:latest
 ##    container_name: fail2ban
@@ -119,7 +105,8 @@ services:
       # to use correct timezone
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-    command: 'renew --webroot -w /var/www/certbot' 
+    # Renew noninteractively (expect an external container running a web server)
+    command: 'renew --webroot -w /var/www/certbot -n' 
 
   # Certbot container for creating a new, non-existing certificate, must be run specifying the $SERVER_SUBDOMAIN
   certbot-new:
@@ -128,13 +115,16 @@ services:
     container_name: certbot-new
     profiles:
       - dummy
+    ports:
+      - 80:80
     volumes:
       - ~/docker/certbot/www:/var/www/certbot
       - ~/docker/certbot/conf:/etc/letsencrypt
       # to use correct timezone
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-    command: 'certonly --webroot -w /var/www/certbot  --email ${CERTBOT_EMAIL} --domain ${SERVER_SUBDOMAIN} --agree-tos'
+    # Does not require an external webserver
+    command: 'certonly --standalone --email ${CERTBOT_EMAIL} --domain ${SERVER_SUBDOMAIN} --agree-tos -n'
 
 # >>>
 
@@ -457,6 +447,7 @@ services:
     image: docker.gitea.com/gitea:1.24.2-rootless
     profiles:
       - service
+      - gitea
     #  - core
     restart: always
     environment:
@@ -465,6 +456,9 @@ services:
       GITEA__database__NAME: 'gitea'
       GITEA__database__USER: 'gitea'
       GITEA__database__PASSWD: '${GITEA_DB_PASSWORD}'
+      GITEA__server__DOMAIN: 'git.${SERVER_DOMAIN}'
+      GITEA__server__ROOT_URL: 'https://git.${SERVER_DOMAIN}/'
+      GITEA__server__SSH_DOMAIN: 'git.${SERVER_DOMAIN}'
     ## Should be in container's /etc/gitea/conf/app.ini
     #  DISABLE_REGISTRATION: true
     ports:
@@ -487,6 +481,7 @@ services:
     restart: always
     profiles:
       - service
+      - gitea
     #  - core
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_DB"]

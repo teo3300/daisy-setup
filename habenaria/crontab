@@ -15,3 +15,4 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 0 4 1 * * docker compose up certbot
 # Every 30 minutes update dns record for owned domains
 0,30 * * * * zsh dnsup/dynu.sh
+0,30 * * * * zsh dnsup/cloudflare.sh

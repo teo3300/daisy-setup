@@ -81,6 +81,19 @@ export SERVER_DOMAIN=<myDomain>
 export SERVER_PORT=<myPort>
 ```
 
+#### Limit ssh access to wireguard IPs
+```ssh_config
+# Disable access from any source
+PasswordAuthentication no
+PubkeyAuthentication no
+
+# Enable access from limited ip range
+Match Address x.y.z.*
+    PubkeyAuthentication yes
+
+# Allows access from x.y.z.0/24
+```
+
 Generate wireguard interface configurations using
 
 > Create the server config interface

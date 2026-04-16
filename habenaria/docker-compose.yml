@@ -1,4 +1,4 @@
-# vim:foldmethod=marker:fmr=<<<,>>>
+# vim:foldmethod=marker:fmr=<<<,>>>:foldlevel=0
 
 # Networks definition <<<
 networks:
@@ -13,6 +13,8 @@ networks:
   jellyfin-backend:
     driver: bridge
   vikunja-backend:
+    driver: bridge
+  php-isolated-frontend:
     driver: bridge
 # >>>
 
@@ -58,19 +60,41 @@ services:
       - 443:443
     networks:
       - frontend
+      - php-isolated-frontend
     environment:
       SERVER_DOMAIN: '${SERVER_DOMAIN}'
+      WG_NET: '${WG_NET}'
     volumes:
       # Write only the config file (temporary)
       - ~/nginx/nginx.conf:/etc/nginx/template-nginx.conf:ro
       - ~/nginx/makeconf.sh:/docker-entrypoint.d/99_makeconf.sh
+      # Include mime types provided by nginx, fetch with
+      # curl https://raw.githubusercontent.com/nginx/nginx/master/conf/mime.types -o ~/nginx/mime.types
+      - ~/nginx/mime.types:/etc/nginx/mime.types
       # /var/www/certbot is only used for the acme challenge
       - ~/docker/certbot/www:/var/www/certbot:ro
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
-      # Expose logs for fail2ban
-      # - /var/log/nginx:/var/log/nginx
+      # Serve files, shared with php
+      - ~/git/content:/var/www/html
       # Use host's timezone
       - /etc/timezone:/etc/timezone:ro
+      # Expose logs for fail2ban
+      # - /var/log/nginx:/var/log/nginx
+
+  php-fpm:
+    image: php:fpm-alpine
+    restart: unless-stopped
+    container_name: php-fpm
+    profiles:
+      - network
+      - core
+    networks:
+      - php-isolated-frontend
+    volumes:
+      # Serve files, shared with nginx
+      - ~/git/content:/var/www/html
+    #expose:
+    #  - 9000
 
 ##  fail2ban:
 ##    image: crazymax/fail2ban:latest
@@ -150,8 +174,7 @@ services:
     restart: unless-stopped
     container_name: 'pihole'
     profiles:
-      - network
-      - core
+      - network-alt
     ports:
       - '53:53/tcp'
       - '53:53/udp'
@@ -164,6 +187,41 @@ services:
     environment:
       TZ: 'Europe/Rome'
       WEBPASSWORD: '${PIHOLE_WEBPASSWORD}'
+    networks:
+      - frontend
+# >>>
+
+# Local DNS (adguard) <<<
+  adguard:
+    image: adguard/adguardhome
+    restart: unless-stopped
+    container_name: 'adguard'
+    profiles:
+      - network
+      - core
+    ports:
+      - '53:53/tcp'
+      - '53:53/udp'
+      ## Do not proxy-manage dashboard
+      - '8081:3000/tcp'
+    volumes:
+      - ~/docker/adguard/workdir:/opt/adguardhome/work
+      - ~/docker/adguard/confdir:/opt/adguardhome/conf
+    networks:
+      - frontend
+# >>>
+
+
+# Local metasearch engine (searxng) <<<
+  searxng:
+    image: searxng/searxng 
+    restart: unless-stopped
+    container_name: 'searxng'
+    profiles:
+      - core
+    volumes:
+      - ~/docker/searxng/config:/etc/searxng
+      - ~/docker/searxng/data:/var/cache/searxng
     networks:
       - frontend
 # >>>
@@ -511,4 +569,17 @@ services:
       - frontend
 # >>>
 
+# Terraria <<<
+  terraria:
+    container_name: terraria
+    image: ryshe/terraria
+    restart: unless-stopped
+    volumes:
+      - ~/terraria/world:/root/.local/share/Terraria/Worlds
+    ports:
+      - '7777:7777'
+    environment:
+      WORLD_FILENAME: "Selene_Tanabe_II.wld"
+    profiles:
+      - dummy
 # >>>

@@ -22,7 +22,7 @@ services:
 
 # Reverse proxy (traefik) <<<
   traefik:
-    image: traefik:latest
+    image: traefik:v3.6.7
     restart: unless-stopped
     container_name: 'traefik'
     profiles:
@@ -49,7 +49,11 @@ services:
 
 # Web server and reverse proxy (nginx) <<< 
   nginx:
-    image: nginx:latest
+    # image: nginx:1.30.0
+    build:
+      context: ~/nginx
+      args:
+        NGINX_VERSION: "1.30.0"
     restart: unless-stopped
     container_name: nginx
     profiles:
@@ -64,6 +68,7 @@ services:
     environment:
       SERVER_DOMAIN: '${SERVER_DOMAIN}'
       WG_NET: '${WG_NET}'
+      COUNTRY_WHITELIST: '${COUNTRY_WHITELIST}'
     volumes:
       # Write only the config file (temporary)
       - ~/nginx/nginx.conf:/etc/nginx/template-nginx.conf:ro
@@ -74,6 +79,8 @@ services:
       # /var/www/certbot is only used for the acme challenge
       - ~/docker/certbot/www:/var/www/certbot:ro
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
+      # Password file
+      - ~/docker/nginx/.htpasswd:/etc/nginx/.htpasswd:ro
       # Serve files, shared with php
       - ~/git/content:/var/www/html
       # Use host's timezone
@@ -152,9 +159,9 @@ services:
 
 # >>>
 
-# Password manager (bitwarden) <<<
+# Password manager (vaultwarden) <<<
   bitwarden:
-    image: vaultwarden/server:latest
+    image: vaultwarden/server:1.35.2
     restart: unless-stopped
     container_name: 'bitwarden'
     environment:
@@ -193,7 +200,7 @@ services:
 
 # Local DNS (adguard) <<<
   adguard:
-    image: adguard/adguardhome
+    image: adguard/adguardhome:v0.107.73
     restart: unless-stopped
     container_name: 'adguard'
     profiles:
@@ -214,7 +221,7 @@ services:
 
 # Local metasearch engine (searxng) <<<
   searxng:
-    image: searxng/searxng 
+    image: searxng/searxng:2026.4.6-e12b722dd 
     restart: unless-stopped
     container_name: 'searxng'
     profiles:
@@ -230,7 +237,7 @@ services:
 
   # Application (jellyfin) <<<
   jellyfin:
-    image: 'jellyfin/jellyfin'
+    image: jellyfin/jellyfin:10.11.6
     restart: unless-stopped
     container_name: 'jellyfin'
     profiles:
@@ -346,7 +353,7 @@ services:
 
   # Frontend (nextcloud) <<<
   nextcloud-frontend:
-    image: nextcloud:latest
+    image: nextcloud
     restart: unless-stopped
     container_name: nextcloud-frontend
     profiles:
@@ -411,7 +418,7 @@ services:
 # ToDoList (vikunja) <<<
   # Frontend (vikunja) <<<
   vikunja-frontend:
-    image: vikunja/vikunja
+    image: vikunja/vikunja:1.0.0-rc2
     restart: unless-stopped
     container_name: 'vikunja-frontend'
     profiles:
@@ -461,7 +468,7 @@ services:
 # Matrix (synapse) <<<
   synapse-frontend:
     container_name: synapse-frontend
-    image: docker.io/matrixdotorg/synapse:latest
+    image: docker.io/matrixdotorg/synapse:sha-93e0497
     restart: unless-stopped
     profiles:
       - service
@@ -502,7 +509,7 @@ services:
 # Git (gitea) <<<
   gitea-frontend:
     container_name: gitea-frontend
-    image: docker.gitea.com/gitea:1.24.2-rootless
+    image: docker.gitea.com/gitea:1.26-rootless
     profiles:
       - service
       - gitea

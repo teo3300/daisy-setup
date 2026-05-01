@@ -42,7 +42,6 @@ services:
     # to listen to docker events
       - /var/run/docker.sock:/var/run/docker.sock
     # set timezone and localtime as the machine settings
-      - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
 
 # >>>
@@ -60,7 +59,7 @@ services:
       - network
       - core
     ports:
-      - 80:80
+    #  - 80:80
       - 443:443
     networks:
       - frontend
@@ -81,10 +80,11 @@ services:
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
       # Password file
       - ~/docker/nginx/.htpasswd:/etc/nginx/.htpasswd:ro
+      - ~/docker/nginx/totp.conf:/etc/nginx/totp.conf:ro
       # Serve files, shared with php
       - ~/git/content:/var/www/html
       # Use host's timezone
-      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
       # Expose logs for fail2ban
       # - /var/log/nginx:/var/log/nginx
 
@@ -118,7 +118,6 @@ services:
 ##      # Read nginx logs (and only nginx logs)
 ##      - /var/log:/var/log:ro
 ##      # Use host's timezone
-##      - /etc/timezone:/etc/timezone:ro
 ##      - /etc/localtime:/etc/localtime:ro
 ##    environment:
 ##      F2B_LOG_TARGET: STDOUT
@@ -130,14 +129,16 @@ services:
     container_name: certbot
     profiles:
       - dummy
+    ports:
+      - 80:80
     volumes:
       - ~/docker/certbot/www:/var/www/certbot
       - ~/docker/certbot/conf:/etc/letsencrypt
       # to use correct timezone
-      - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     # Renew noninteractively (expect an external container running a web server)
-    command: 'renew --webroot -w /var/www/certbot -n' 
+    # TODO: Should give port 80 to certbot only, skip the 301 redirect
+    command: 'renew --standalone -n' 
 
   # Certbot container for creating a new, non-existing certificate, must be run specifying the $SERVER_SUBDOMAIN
   certbot-new:
@@ -152,7 +153,6 @@ services:
       - ~/docker/certbot/www:/var/www/certbot
       - ~/docker/certbot/conf:/etc/letsencrypt
       # to use correct timezone
-      - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     # Does not require an external webserver
     command: 'certonly --standalone --email ${CERTBOT_EMAIL} --domain ${SERVER_SUBDOMAIN} --agree-tos -n'
@@ -534,7 +534,6 @@ services:
     volumes:
       - ~/docker/gitea/data:/var/lib/gitea
       - ~/docker/gitea/config:/etc/gitea
-      - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     networks:
       - frontend

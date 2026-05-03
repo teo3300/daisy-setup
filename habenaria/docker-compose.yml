@@ -124,7 +124,7 @@ services:
       # Various files
       - ~/fail2ban:/config/fail2ban
       - ~/docker/fail2ban/log:/config/log/fail2ban
-      - ~/val/log:/var/log:ro
+      - ~/var/log:/var/log:ro
       - ~/docker/nginx/log:/remotelogs/nginx:ro
 
   # Certbot container for certificate renewal

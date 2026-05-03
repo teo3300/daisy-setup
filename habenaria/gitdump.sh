@@ -32,7 +32,7 @@ cp docker/addkey $GITREPO/docker/
 cp traefik/* $GITREPO/traefik/
 
 # Nginx config
-cp nginx/* $GITREPO/nginx/
+find nginx -mindepth 1 ! -name 'mime.types' -exec cp {} "$GITREPO/nginx/" \;
 
 # Fail2ban config
 cp fail2ban/filter.d/*.local $GITREPO/fail2ban/filter.d/

@@ -76,7 +76,6 @@ services:
       # curl https://raw.githubusercontent.com/nginx/nginx/master/conf/mime.types -o ~/nginx/mime.types
       - ~/nginx/mime.types:/etc/nginx/mime.types
       # /var/www/certbot is only used for the acme challenge
-      - ~/docker/certbot/www:/var/www/certbot:ro
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
       # Password file
       - ~/docker/nginx/.htpasswd:/etc/nginx/.htpasswd:ro

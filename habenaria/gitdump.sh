@@ -28,9 +28,6 @@ cp makecerts.sh $GITREPO/
 # Small script to generate a random key to use in docker variables
 cp docker/addkey $GITREPO/docker/
 
-# Traefik config (now switching to nginx
-cp traefik/* $GITREPO/traefik/
-
 # Nginx config
 find nginx -mindepth 1 ! -name 'mime.types' -exec cp {} "$GITREPO/nginx/" \;
 

@@ -23,6 +23,6 @@ for ((i=0; i<${#CLOUDFLARE_DNS_IDS[@]}; i++)); do
               "type": "A",
               "content": "'${IP}'",
               "proxied": false
-           }' \
+           }' 2>&/ddev/null \
        | jq 'select (.errors != [])'
 done

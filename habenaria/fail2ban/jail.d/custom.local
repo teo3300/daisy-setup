@@ -1,0 +1,75 @@
+[DEFAULT]
+
+# "bantime.increment" allows to use database for searching of previously banned ip's to increase a
+# default ban time
+bantime.increment = true
+
+# "bantime.maxtime" is the max number of seconds using the ban time can reach (doesn't grow further)
+bantime.maxtime = 5w
+
+# "bantime.factor" is a coefficient to calculate exponent growing of the formula or common multiplier
+bantime.factor = 24
+
+# "bantime" is the number of seconds that a host is banned.
+bantime = 20m
+
+# A host is banned if it has generated "maxretry" during the last "findtime"
+# seconds.
+findtime = 10m
+
+# "maxretry" is the number of failures before a host get banned.
+maxretry = 5
+
+# Prevents banning LAN subnets
+ignoreip    = 127.0.0.1/8 ::1
+              10.0.0.0/8
+              172.16.0.0/12
+              192.168.0.0/16
+
+# The ban action "iptables-multiport" (default) should work for most
+# The ban action "iptables-allports" can be used if multiport causes issues
+#banaction = %(banaction_allports)s
+
+# Read https://github.com/sebres/PoC/blob/master/FW.IDS-DROP-vs-REJECT/README.md before changing block type
+# The block type "REJECT --reject-with icmp-port-unreachable" (default behavior) should respond to, but then instantly reject connection attempts
+# The block type "DROP" should not respond to connection attempts, resulting in a timeout
+banaction = iptables-multiport[blocktype=DROP]
+
+# Add additional actions
+action  = %(action_)s
+
+[nginx-http-auth]
+# configuration inherits from jail.conf
+enabled = true
+chain   = DOCKER-USER
+action  = %(known/action)s
+
+[nginx-botsearch]
+# configuration inherits from jail.conf
+enabled = true
+chain   = DOCKER-USER
+action  = %(known/action)s
+
+[nginx-deny]
+# configuration inherits from jail.d/nginx-deny.conf
+enabled = true
+chain   = DOCKER-USER
+action  = %(known/action)s
+
+[nginx-unauthorized]
+# configuration inherits from jail.d/nginx-unauthorized.conf
+enabled = true
+chain   = DOCKER-USER
+action  = %(known/action)s
+
+[nginx-forbidden]
+# configuration inherits from jail.d/nginx-forbidden.conf
+enabled = true
+chain   = DOCKER-USER
+action  = %(known/action)s
+
+[nginx-drop]
+# configuration inherits from jail.d/nginx-drop.local
+enabled = true
+chain   = DOCKER-USER
+action  = %(known/action)s

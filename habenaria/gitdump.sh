@@ -34,6 +34,10 @@ cp traefik/* $GITREPO/traefik/
 # Nginx config
 cp nginx/* $GITREPO/nginx/
 
+# Fail2ban config
+cp fail2ban/filter.d/*.local $GITREPO/fail2ban/filter.d/
+cp fail2ban/jail.d/*.local $GITREPO/fail2ban/jail.d/
+
 # Scripts to create a wireguard interface
 cp wireguard/setup_{client,server} $GITREPO/wireguard/
 

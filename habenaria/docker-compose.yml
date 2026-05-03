@@ -85,8 +85,8 @@ services:
       - ~/git/content:/var/www/html
       # Use host's timezone
       - /etc/localtime:/etc/localtime:ro
-      # Expose logs for fail2ban
-      # - /var/log/nginx:/var/log/nginx
+      # Save log
+      - ~/docker/nginx/log:/etc/log
 
   php-fpm:
     image: php:fpm-alpine
@@ -103,25 +103,30 @@ services:
     #expose:
     #  - 9000
 
-##  fail2ban:
-##    image: crazymax/fail2ban:latest
-##    container_name: fail2ban
-##    restart: unless-stopped
-##    network_mode: "host"
-##    profiles:
-##      - network-alt
-##    cap_add:
-##      - NET_ADMIN
-##      - NET_RAW
-##    volumes:
-##      - ~/docker/fail2ban:/data
-##      # Read nginx logs (and only nginx logs)
-##      - /var/log:/var/log:ro
-##      # Use host's timezone
-##      - /etc/localtime:/etc/localtime:ro
-##    environment:
-##      F2B_LOG_TARGET: STDOUT
-##      F2B_LOG_LEVEL: INFO
+  fail2ban:
+    image: lscr.io/linuxserver/fail2ban:1.1.0
+    container_name: fail2ban
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PUID: '1000'
+      PGID: '1000'
+      TZ: '${TZ}'
+    profiles:
+      - network
+      - core
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      # Use host's timezone
+      - /etc/localtime:/etc/localtime:ro
+      # Various files
+      - ~/fail2ban:/config/fail2ban
+      - ~/docker/fail2ban/log:/config/log/fail2ban
+      - ~/val/log:/var/log:ro
+      - ~/docker/nginx/log:/remotelogs/nginx:ro
+
   # Certbot container for certificate renewal
   certbot:
     image: certbot/certbot
@@ -171,29 +176,6 @@ services:
       - core
     volumes:
       - ~/docker/vw-data:/data
-    networks:
-      - frontend
-# >>>
-
-# Local DNS (pihole) <<<
-  pihole:
-    image: pihole/pihole:latest
-    restart: unless-stopped
-    container_name: 'pihole'
-    profiles:
-      - network-alt
-    ports:
-      - '53:53/tcp'
-      - '53:53/udp'
-      - '67:67/udp'
-      ## Do not proxy-manage dashboard
-      - '8081:80/tcp'
-    volumes:
-      - ~/docker/pihole/etc/pihole:/etc/pihole
-      - ~/docker/pihole/etc/dnsmasq.d:/etc/dnsmasq.d
-    environment:
-      TZ: 'Europe/Rome'
-      WEBPASSWORD: '${PIHOLE_WEBPASSWORD}'
     networks:
       - frontend
 # >>>
@@ -270,58 +252,13 @@ services:
               capabilities: [gpu]
     environment:
       JELLYFIN_PublishedServerUrl: 'movie.${SERVER_DOMAIN}'
-      TZ: Europe/Rome
+      TZ: '${TZ}'
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks:
       - jellyfin-backend
       - frontend
   # >>>
-##
-##  # Indexer (prowlar) <<<
-##  prowlarr:
-##    image: ghcr.io/hotio/prowlarr
-##    container_name: prowlarr
-##    ports:
-##      - '9696:9696'
-##    profiles:
-##      - services
-##      - jellyfin
-##    environment:
-##      PUID: 1000
-##      PGID: 1000
-##      UMASK: 002
-##      TZ: Europe/Rome
-##    volumes:
-##     - ~/docker/prowlarr/config:/config
-##    networks:
-##      - jellyfin-backend
-##      - frontend
-##  # >>>
-##
-##  # TV-series manager (sonarr) <<<
-##  sonarr:
-##    image: ghcr.io/hotio/sonarr
-##    container_name: sonarr
-##    ports:
-##      - "8989:8989"
-##    profiles:
-##      - services
-##      - jellyfin
-##    environment:
-##      PUID: 1000
-##      PGID: 1000
-##      UMASK: 002
-##      TZ: Europe/Rome
-##    volumes:
-##      - ~/docker/sonarr/config:/config
-##      - ~/docker/sonarr/data:/data
-##      - ~/docker/jellyfin/media:/media
-##    networks:
-##      - jellyfin-backend
-##      - frontend
-##  # >>>
-##
 # >>>
 
 # Drive (nextcloud) <<<

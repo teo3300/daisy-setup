@@ -71,17 +71,18 @@ services:
     volumes:
       # Write only the config file (temporary)
       - ~/nginx/nginx.conf:/etc/nginx/template-nginx.conf:ro
-      - ~/nginx/makeconf.sh:/docker-entrypoint.d/99_makeconf.sh
+      - ~/nginx/makeconf.sh:/docker-entrypoint.d/99_makeconf.sh:ro
       # Include mime types provided by nginx, fetch with
       # curl https://raw.githubusercontent.com/nginx/nginx/master/conf/mime.types -o ~/nginx/mime.types
-      - ~/nginx/mime.types:/etc/nginx/mime.types
+      - ~/nginx/mime.types:/etc/nginx/mime.types:ro
       # /var/www/certbot is only used for the acme challenge
       - ~/docker/certbot/conf:/etc/letsencrypt:ro
       # Password file
       - ~/docker/nginx/.htpasswd:/etc/nginx/.htpasswd:ro
       - ~/docker/nginx/totp.conf:/etc/nginx/totp.conf:ro
+      - ~/docker/nginx/certs:/etc/nginx/certs:ro
       # Serve files, shared with php
-      - ~/git/content:/var/www/html
+      - ~/git/content:/var/www/html:ro
       # Use host's timezone
       - /etc/localtime:/etc/localtime:ro
       # Save log
@@ -205,6 +206,8 @@ services:
     image: searxng/searxng:2026.4.6-e12b722dd 
     restart: unless-stopped
     container_name: 'searxng'
+    environment:
+      SARXNG_BIND_ADDRESS: '0.0.0.0'
     profiles:
       - core
     volumes:
